@@ -1,98 +1,120 @@
-package com.replica.iosui.services;
+// Append these imports to the top of your file
+import android.content.IntentFilter;
+import android.media.AudioManager;
+import android.os.Handler;
+import android.os.Looper;
+import com.replica.iosui.views.IOSSliderView;
 
-import android.app.Service;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.PixelFormat;
-import android.os.Build;
-import android.os.IBinder;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.TextView;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
+// Add these private variables inside the main class block:
+private WindowManager.LayoutParams hudParams;
+private View volumeHudView;
+private IOSSliderView hudSlider;
+private View hudContainer;
+private AudioManager audioManager;
+private VolumeKeyReceiver volumeReceiver;
+private Handler hudDismissHandler;
+private Runnable dismissRunnable;
 
-import com.replica.iosui.R;
+private boolean isHudVisible = false;
+private boolean isExpanded = false;
+private float hudWidth = 14f; // Track active base layout dimensions
+    // Initialize standard Android core audio hooks
+    audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+    hudDismissHandler = new Handler(Looper.getMainLooper());
 
-public class IOSStatusBarService extends Service {
-
-    private WindowManager windowManager;
-    private View statusBarView;
-    private Timer clockTimer;
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-
-        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        statusBarView = LayoutInflater.from(this).inflate(R.layout.overlay_status_bar, null);
-
-        // Define window parameters for top-level global injection
-        int layoutFlag;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-        } else {
-            layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
+    setupVolumeHUDWindow();
+    
+    // Wire up tracking behaviors directly to hardware audio stream updates
+    volumeReceiver = new VolumeKeyReceiver(new VolumeKeyReceiver.VolumeChangeListener() {
+        @Override
+        public void onVolumeChanged() {
+            triggerVolumeHudUpdate();
         }
+    });
+    
+    IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
+    registerReceiver(volumeReceiver, filter);
+    private void setupVolumeHUDWindow() {
+        volumeHudView = LayoutInflater.from(this).inflate(R.layout.overlay_volume_hud, null);
+        hudSlider = volumeHudView.findViewById(R.id.hudSlider);
+        hudContainer = volumeHudView.findViewById(R.id.hudContainer);
 
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                dpToPx(44), // iOS Standard native height tracking
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+        hudParams = new WindowManager.LayoutParams(
+                dpToPx(100),
+                dpToPx(220),
                 layoutFlag,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
 
-        params.gravity = Gravity.TOP | Gravity.START;
+        // Position it exactly on the left side of the screen matching modern iOS device standards
+        hudParams.gravity = Gravity.CENTER_VERTICAL | Gravity.START;
         
-        // Inject layout onto the device canvas
-        windowManager.addView(statusBarView, params);
+        // Initialize dismiss task thread routines
+        dismissRunnable = () -> hideVolumeHUD();
 
-        // Start dynamic clock synchronization loops
-        initClockEngine();
-    }
-
-    private void initClockEngine() {
-        final TextView timeTextView = statusBarView.findViewById(R.id.statusBarTime);
-        final SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm", Locale.getDefault());
-        
-        clockTimer = new Timer();
-        clockTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                // Post calculations back to main view thread
-                statusBarView.post(() -> {
-                    String currentTime = timeFormatter.format(new Date());
-                    timeTextView.setText(currentTime);
+        // Wire touch listeners to seamlessly convert the thin indicator line into a thick slider
+        hudSlider.setOnTouchListener((v, event) -> {
+            if (!isExpanded) {
+                isExpanded = true;
+                hudDismissHandler.removeCallbacks(dismissRunnable);
+                
+                // Dynamic spring transition tracking: widening the tap frame canvas bounds
+                new com.replica.iosui.physics.IOSSpringAnimator(hudSlider).animateTo(hudWidth, 48f, val -> {
+                    hudWidth = val;
+                    hudSlider.getLayoutParams().width = dpToPx((int) val);
+                    hudSlider.requestLayout();
                 });
             }
-        }, 0, 1000); // Check and refresh text variables every second
+            return false; // Allow touch pass-through to handle custom baseline tracking math safely
+        });
     }
 
-    private int dpToPx(int dp) {
-        float density = getResources().getDisplayMetrics().density;
-        return Math.round((float) dp * density);
-    }
+    private void triggerVolumeHudUpdate() {
+        hudDismissHandler.removeCallbacks(dismissRunnable);
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (statusBarView != null && windowManager != null) {
-            windowManager.removeView(statusBarView);
+        int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        float currentRatio = (float) currentVol / (float) maxVol;
+
+        hudSlider.setProgress(currentRatio);
+
+        if (!isHudVisible) {
+            isHudVisible = true;
+            windowManager.addView(volumeHudView, hudParams);
+            
+            // Pop slider container out from extreme edge boundary locations dynamically
+            hudContainer.setTranslationX(-dpToPx(40));
+            new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(-dpToPx(40), 0f, val -> {
+                hudContainer.setTranslationX(val);
+            });
         }
-        if (clockTimer != null) {
-            clockTimer.cancel();
+
+        // Keep it visible for 2 seconds before sliding away unless actively manipulated by the user
+        hudDismissHandler.postDelayed(dismissRunnable, 2000);
+    }
+
+    private void hideVolumeHUD() {
+        if (isHudVisible) {
+            // Animate it clean out off-canvas gracefully before fully tearing layout frame variables down
+            new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(hudContainer.getTranslationX(), -dpToPx(60), val -> {
+                hudContainer.setTranslationX(val);
+                if (val <= -dpToPx(58)) {
+                    if (isHudVisible) {
+                        windowManager.removeView(volumeHudView);
+                        isHudVisible = false;
+                        isExpanded = false;
+                        
+                        // Reset slider scale parameters back down safely to base structural states
+                        hudWidth = 14f;
+                        hudSlider.getLayoutParams().width = dpToPx(14);
+                        hudSlider.requestLayout();
+                    }
+                }
+            });
         }
     }
-}
-
