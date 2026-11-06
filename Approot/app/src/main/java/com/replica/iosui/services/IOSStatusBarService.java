@@ -14,6 +14,11 @@ private AudioManager audioManager;
 private VolumeKeyReceiver volumeReceiver;
 private Handler hudDismissHandler;
 private Runnable dismissRunnable;
+private WindowManager.LayoutParams ccParams;
+private View controlCentreView;
+private View ccRootView;
+
+private boolean isCCVisible = false;
 
 private boolean isHudVisible = false;
 private boolean isExpanded = false;
@@ -23,6 +28,7 @@ private float hudWidth = 14f; // Track active base layout dimensions
     hudDismissHandler = new Handler(Looper.getMainLooper());
 
     setupVolumeHUDWindow();
+    setupControlCentreWindow();
     
     // Wire up tracking behaviors directly to hardware audio stream updates
     volumeReceiver = new VolumeKeyReceiver(new VolumeKeyReceiver.VolumeChangeListener() {
@@ -118,3 +124,50 @@ private float hudWidth = 14f; // Track active base layout dimensions
             });
         }
     }
+    private void setupControlCentreWindow() {
+        controlCentreView = LayoutInflater.from(this).inflate(R.layout.overlay_control_centre, null);
+        ccRootView = controlCentreView.findViewById(R.id.ccRoot);
+
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+        ccParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                layoutFlag,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        
+        // Hook gesture points on your status bar to intercept pull downs from the top right edge area
+        View rightHitbox = statusBarView.findViewById(R.id.battery_container); 
+        if (rightHitbox == null) rightHitbox = statusBarView.findViewById(R.id.statusBarSignal);
+
+        rightHitbox.setOnClickListener(v -> toggleControlCentre());
+    }
+
+    private void toggleControlCentre() {
+        if (!isCCVisible) {
+            isCCVisible = true;
+            windowManager.addView(controlCentreView, ccParams);
+
+            // Animate tray rolling downwards smoothly using spring physics tracking frames
+            ccRootView.setTranslationY(-getResources().getDisplayMetrics().heightPixels);
+            new com.replica.iosui.physics.IOSSpringAnimator(ccRootView).animateTo(ccRootView.getTranslationY(), 0f, val -> {
+                ccRootView.setTranslationY(val);
+            });
+        } else {
+            float targetExit = -getResources().getDisplayMetrics().heightPixels;
+            new com.replica.iosui.physics.IOSSpringAnimator(ccRootView).animateTo(ccRootView.getTranslationY(), targetExit, val -> {
+                ccRootView.setTranslationY(val);
+                if (val <= targetExit + 10f) {
+                    if (isCCVisible) {
+                        windowManager.removeView(controlCentreView);
+                        isCCVisible = false;
+                    }
+                }
+            });
+        }
+    }
+
