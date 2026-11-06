@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://android.com"
+    android:layout_width="match_parent"
+    android:layout_height="44dp"
+    android:background="#FF000000"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <!-- LEFT: iOS Clock Element -->
+    <TextView
+        android:id="@+id/statusBarTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:text="9:41"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- RIGHT: Status Cluster (Signal, WiFi, Battery Capsule) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Cellular Signal Strength Meter -->
+        <TextView
+            android:id="@+id/statusBarSignal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LTE"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginEnd="6dp"
+            android:textStyle="bold"/>
+
+        <!-- Battery Container Capsule -->
+        <RelativeLayout
+            android:layout_width="24dp"
+            android:layout_height="12dp"
+            android:background="@drawable/ios_battery_shape">
+
+            <!-- Active Internal Fill -->
+            <View
+                android:id="@+id/batteryLevelFill"
+                android:layout_width="16dp"
+                android:layout_height="match_parent"
+                android:layout_margin="1.5dp"
+                android:background="@drawable/ios_battery_fill" />
+        </RelativeLayout>
+    </LinearLayout>
+</RelativeLayout>
+
