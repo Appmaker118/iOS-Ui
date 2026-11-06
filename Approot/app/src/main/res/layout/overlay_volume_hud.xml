@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://android.com"
+    android:layout_width="100dp"
+    android:layout_height="220dp"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- The iOS Container Box placed flush against the screen margin boundary -->
+    <LinearLayout
+        android:id="@+id/hudContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="140dp"
+        android:layout_gravity="center_vertical|start"
+        android:layout_marginStart="12dp"
+        android:orientation="horizontal"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <!-- Re-using our highly responsive custom Spring Capsule View -->
+        <com.replica.iosui.views.IOSSliderView
+            android:id="@+id/hudSlider"
+            android:layout_width="14dp" 
+            android:layout_height="match_parent" />
+            <!-- Note: Java will dynamically scale width from 14dp (idle) to 48dp (expanded) on touch -->
+
+    </LinearLayout>
+</FrameLayout>
