@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://android.com"
+    android:shape="oval">
+    <solid android:color="#4D000000" /> <!-- Dark frosted glass base -->
+    <size android:width="50dp" android:height="50dp"/>
+</shape>
