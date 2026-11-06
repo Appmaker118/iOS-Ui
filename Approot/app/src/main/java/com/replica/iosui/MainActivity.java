@@ -1,21 +1,27 @@
 package com.replica.iosui;
 
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 import com.replica.iosui.physics.IOSSpringAnimator;
 import com.replica.iosui.services.IOSLockScreenService;
 import com.replica.iosui.services.IOSStatusBarService;
@@ -25,174 +31,166 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private GridLayout appsGridLayout;
+    private ViewPager2 viewPager;
+    private TabLayout dotIndicator;
     private PackageManager packageManager;
-    
-    // Edit Mode State Variables
-    private boolean isEditModeActive = false;
-    private final List<View> appCardViewsList = new ArrayList<>();
-    private final List<ObjectAnimator> activeJiggleAnimators = new ArrayList<>();
+    private List<ResolveInfo> installedAppsList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
 
-        appsGridLayout = findViewById(R.id.appsGrid);
+        viewPager = findViewById(R.id.homeViewPager);
+        dotIndicator = findViewById(R.id.pageIndicatorDots);
         packageManager = getPackageManager();
 
         startService(new Intent(this, IOSStatusBarService.class));
         startService(new Intent(this, IOSLockScreenService.class));
 
-        loadDeviceApplications();
-
-        // Tapping the background blank desk sheet instantly cancels active editing
-        findViewById(R.id.launcherWallpaper).setOnClickListener(v -> {
-            if (isEditModeActive) {
-                exitEditJiggleMode();
-            }
-        });
-    }
-
-    private void loadDeviceApplications() {
+        // Load hardware apps
         Intent startupIntent = new Intent(Intent.ACTION_MAIN, null);
         startupIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        List<ResolveInfo> availableActivities = packageManager.queryIntentActivities(startupIntent, 0);
+        installedAppsList = packageManager.queryIntentActivities(startupIntent, 0);
 
-        for (final ResolveInfo appInfo : availableActivities) {
-            final View appCard = LayoutInflater.from(this).inflate(R.layout.item_ios_app, appsGridLayout, false);
-            
-            CardView frame = appCard.findViewById(R.id.iconCardFrame);
-            ImageView iconImg = appCard.findViewById(R.id.appIconImage);
-            TextView labelTxt = appCard.findViewById(R.id.appLabelText);
-            final View deleteBadge = appCard.findViewById(R.id.deleteBadge);
+        // Configure multi-page workspace adapter pipelines
+        viewPager.setAdapter(new HomePagerAdapter());
+        new TabLayoutMediator(dotIndicator, viewPager, (tab, position) -> {}).attach();
+    }
 
-            labelTxt.setText(appInfo.loadLabel(packageManager));
-            iconImg.setImageDrawable(appInfo.loadIcon(packageManager));
-            frame.setRadius(dpToPx(13)); 
+    private class HomePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int TYPE_GRID_PAGE = 0;
+        private static final int TYPE_LIBRARY_PAGE = 1;
+        private final int appsPerPage = 16; // 4x4 matrix grid sub-allotment allocations per page
 
-            appCardViewsList.add(appCard);
+        @Override
+        public int getItemViewType(int position) {
+            int totalGridPages = (int) Math.ceil((double) installedAppsList.size() / appsPerPage);
+            return (position == totalGridPages) ? TYPE_LIBRARY_PAGE : TYPE_GRID_PAGE;
+        }
 
-            // --- WIRE LONG PRESS EVENT TO START EDIT MODE ---
-            appCard.setOnLongClickListener(v -> {
-                if (!isEditModeActive) {
-                    enterEditJiggleMode();
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == TYPE_LIBRARY_PAGE) {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.page_app_library, parent, false);
+                return new LibraryViewHolder(view);
+            } else {
+                GridLayout gridLayout = new GridLayout(parent.getContext());
+                gridLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                gridLayout.setColumnCount(4);
+                gridLayout.setPadding(32, 32, 32, 32);
+                return new GridViewHolder(gridLayout);
+            }
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (holder instanceof GridViewHolder) {
+                GridLayout grid = (GridLayout) holder.itemView;
+                grid.removeAllViews();
+                
+                int startIndex = position * appsPerPage;
+                int endIndex = Math.min(startIndex + appsPerPage, installedAppsList.size());
+                
+                for (int i = startIndex; i < endIndex; i++) {
+                    grid.addView(createAppIconCard(installedAppsList.get(i)));
                 }
-                return true;
-            });
+            } else if (holder instanceof LibraryViewHolder) {
+                LibraryViewHolder libHolder = (LibraryViewHolder) holder;
+                libHolder.populateLibrary(installedAppsList);
+            }
+        }
 
-            // --- TOUCH LOGIC COMPATIBLE WITH ACTIVE JIGGLE MODES ---
-            appCard.setOnTouchListener(new View.OnTouchListener() {
-                private float currentScale = 1.0f;
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    if (isEditModeActive) return false; // Bypass scale shifts when editing
+        @Override
+        public int getItemCount() {
+            int totalGridPages = (int) Math.ceil((double) installedAppsList.size() / appsPerPage);
+            return totalGridPages + 1; // Append the App Library page as the final option
+        }
+    }
 
-                    switch (event.getAction()) {
-                        case MotionEvent.ACTION_DOWN:
-                            new IOSSpringAnimator(appCard).animateTo(currentScale, 0.88f, val -> {
-                                currentScale = val;
-                                appCard.setScaleX(val);
-                                appCard.setScaleY(val);
-                            });
-                            return false; // Return false so LongClickListener can still trigger
+    private View createAppIconCard(final ResolveInfo appInfo) {
+        View appCard = LayoutInflater.from(this).inflate(R.layout.item_ios_app, null, false);
+        CardView frame = appCard.findViewById(R.id.iconCardFrame);
+        ImageView iconImg = appCard.findViewById(R.id.appIconImage);
+        TextView labelTxt = appCard.findViewById(R.id.appLabelText);
 
-                        case MotionEvent.ACTION_UP:
-                            new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
-                                currentScale = val;
-                                appCard.setScaleX(val);
-                                appCard.setScaleY(val);
-                            });
-                            
-                            Intent launchIntent = packageManager.getLaunchIntentForPackage(appInfo.activityInfo.packageName);
-                            if (launchIntent != null) {
-                                startActivity(launchIntent);
-                                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                            }
-                            return true;
+        labelTxt.setText(appInfo.loadLabel(packageManager));
+        iconImg.setImageDrawable(appInfo.loadIcon(packageManager));
+        frame.setRadius(Math.round(13 * getResources().getDisplayMetrics().density));
 
-                        case MotionEvent.ACTION_CANCEL:
-                            new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
-                                currentScale = val;
-                                appCard.setScaleX(val);
-                                appCard.setScaleY(val);
-                            });
-                            return true;
+        appCard.setOnTouchListener(new View.OnTouchListener() {
+            private float currentScale = 1.0f;
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        new IOSSpringAnimator(appCard).animateTo(currentScale, 0.88f, val -> {
+                            currentScale = val;
+                            appCard.setScaleX(val);
+                            appCard.setScaleY(val);
+                        });
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
+                            currentScale = val;
+                            appCard.setScaleX(val);
+                            appCard.setScaleY(val);
+                        });
+                        if (event.getAction() == MotionEvent.ACTION_UP) {
+                            Intent intent = packageManager.getLaunchIntentForPackage(appInfo.activityInfo.packageName);
+                            if (intent != null) startActivity(intent);
+                        }
+                        return true;
                     }
-                    return false;
+                return false;
+            }
+        });
+        return appCard;
+    }
+
+    private class GridViewHolder extends RecyclerView.ViewHolder {
+        public GridViewHolder(@NonNull View itemView) { super(itemView); }
+    }
+
+    private class LibraryViewHolder extends RecyclerView.ViewHolder {
+        private final GridLayout libraryGrid;
+        private final EditText searchBar;
+
+        public LibraryViewHolder(@NonNull View itemView) {
+            super(itemView);
+            libraryGrid = itemView.findViewById(R.id.libraryGrid);
+            searchBar = itemView.findViewById(R.id.searchBarInput);
+        }
+
+        public void populateLibrary(final List<ResolveInfo> allApps) {
+            renderGridItems(allApps);
+            
+            // TextWatcher loop to handle input filtering dynamically on every keypress
+            searchBar.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    List<ResolveInfo> filteredApps = new ArrayList<>();
+                    for (ResolveInfo app : allApps) {
+                        if (app.loadLabel(packageManager).toString().toLowerCase().contains(s.toString().toLowerCase())) {
+                            filteredApps.add(app);
+                        }
+                    }
+                    renderGridItems(filteredApps);
                 }
-            });
-
-            // Delete button shortcut behavior template hook
-            deleteBadge.setOnClickListener(v -> {
-                appsGridLayout.removeView(appCard);
-                appCardViewsList.remove(appCard);
-            });
-
-            appsGridLayout.addView(appCard);
-        }
-    }
-
-    private void enterEditJiggleMode() {
-        isEditModeActive = true;
-        
-        // Randomly offset the initial start point of each icon's animation so they don't jiggle perfectly in sync
-        java.util.Random rand = new java.util.Random();
-
-        for (View card : appCardViewsList) {
-            View badge = card.findViewById(R.id.deleteBadge);
-            badge.setVisibility(View.VISIBLE);
-            
-            // Pop badge into view cleanly with a mini bounce scale effect
-            badge.setScaleX(0f); badge.setScaleY(0f);
-            new IOSSpringAnimator(badge).animateTo(0f, 1f, val -> {
-                badge.setScaleX(val);
-                badge.setScaleY(val);
-            });
-
-            // Set up the rapid back-and-forth rotational jiggle loop
-            ObjectAnimator rotateAnim = ObjectAnimator.ofFloat(card, "rotation", -1.8f, 1.8f);
-            rotateAnim.setDuration(120 + rand.nextInt(40)); // Alternate speeds slightly
-            rotateAnim.setRepeatMode(ValueAnimator.REVERSE);
-            rotateAnim.setRepeatCount(ValueAnimator.INFINITE);
-            rotateAnim.start();
-            
-            activeJiggleAnimators.add(rotateAnim);
-        }
-    }
-
-    private void exitEditJiggleMode() {
-        isEditModeActive = false;
-
-        // Stop all active rotation loops instantly
-        for (ObjectAnimator anim : activeJiggleAnimators) {
-            anim.cancel();
-        }
-        activeJiggleAnimators.clear();
-
-        // Smoothly snap all icons back to zero rotation and hide the delete badges
-        for (View card : appCardViewsList) {
-            card.setRotation(0f);
-            final View badge = card.findViewById(R.id.deleteBadge);
-            
-            new IOSSpringAnimator(badge).animateTo(badge.getScaleX(), 0f, val -> {
-                badge.setScaleX(val);
-                badge.setScaleY(val);
-                if (val <= 0.05f) badge.setVisibility(View.GONE);
+                @Override
+                public void afterTextChanged(Editable s) {}
             });
         }
-    }
 
-    private int dpToPx(int dp) {
-        return Math.round((float) dp * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (isEditModeActive) {
-            exitEditJiggleMode();
-        } else {
-            super.onBackPressed();
+        private void renderGridItems(List<ResolveInfo> apps) {
+            libraryGrid.removeAllViews();
+            for (ResolveInfo app : apps) {
+                libraryGrid.addView(createAppIconCard(app));
+            }
         }
     }
 }
