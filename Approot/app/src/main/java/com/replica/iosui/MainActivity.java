@@ -38,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
     private void startStatusBarEngine() {
         Intent serviceIntent = new Intent(MainActivity.this, IOSStatusBarService.class);
         startService(serviceIntent);
+        Intent lockIntent = new Intent(MainActivity.this, IOSLockScreenService.class);
+        startService(lockIntent);
     }
 
     @Override
