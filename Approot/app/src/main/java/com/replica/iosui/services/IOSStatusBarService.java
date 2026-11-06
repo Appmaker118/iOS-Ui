@@ -1,6 +1,8 @@
 package com.replica.iosui.services;
 
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -8,6 +10,10 @@ import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
@@ -27,6 +33,7 @@ import com.replica.iosui.views.IOSSliderView;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -47,8 +54,12 @@ public class IOSStatusBarService extends Service {
     private Timer clockTimer;
     private AudioManager audioManager;
     private WifiManager wifiManager;
+    private BluetoothAdapter bluetoothAdapter;
     private CameraManager cameraManager;
+    private MediaSessionManager mediaSessionManager;
+    private MediaController activeMediaController;
     private BroadcastReceiver volumeReceiver;
+    private BroadcastReceiver bluetoothReceiver;
     
     // State Framework Pointers
     private String cameraId;
@@ -82,6 +93,11 @@ public class IOSStatusBarService extends Service {
         // 1. HARDWARE SYSTEM INITIALIZERS
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
+        
+        BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if (bm != null) bluetoothAdapter = bm.getAdapter();
+
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             if (cameraManager != null && cameraManager.getCameraIdList().length > 0) {
@@ -120,13 +136,14 @@ public class IOSStatusBarService extends Service {
         );
         dragParams.gravity = Gravity.TOP | Gravity.END;
         dragTriggerView = new View(this);
-        dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPAREMENT);
         windowManager.addView(dragTriggerView, dragParams);
 
         // 4. INITIALIZE FUNCTIONAL LOOPS
         initClockEngine();
         initVolumeHUDSystem();
         initDragAndHardwareUtilities();
+        initMediaPlaybackEngine();
     }
 
     private void initClockEngine() {
@@ -203,11 +220,14 @@ public class IOSStatusBarService extends Service {
 
     private void initDragAndHardwareUtilities() {
         ImageView wifiBtn = masterView.findViewById(R.id.ccWifi);
+        ImageView bluetoothBtn = masterView.findViewById(R.id.ccBluetooth);
         ImageView torchBtn = masterView.findViewById(R.id.ccFlashlight);
+        View mirrorBtn = masterView.findViewById(R.id.ccWifi).getRootView().findViewById(R.id.ccTrackTitle).getRootView(); 
+        
         com.replica.iosui.views.IOSSliderView brightSlider = masterView.findViewById(R.id.ccBrightness);
         com.replica.iosui.views.IOSSliderView volumeSlider = masterView.findViewById(R.id.ccVolume);
 
-        // Hardware Hooks
+        // --- 1. WI-FI UTILITY ---
         if (wifiManager != null) wifiBtn.setBackgroundColor(wifiManager.isWifiEnabled() ? 0xFF007AFF : 0xFF444444);
         wifiBtn.setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -221,37 +241,71 @@ public class IOSStatusBarService extends Service {
             }
         });
 
-        torchBtn.setOnClickListener(v -> {
-            if (cameraManager != null && cameraId != null) {
-                try {
-                    isFlashlightOn = !isFlashlightOn;
-                    cameraManager.setTorchMode(cameraId, isFlashlightOn);
-                    torchBtn.setBackgroundColor(isFlashlightOn ? 0xFF007AFF : 0xFF444444);
-                } catch (Exception ignored) {}
-            }
-        });
+        // --- 2. BLUETOOTH UTILITY ---
 
-        try {
-            brightSlider.setProgress((float) Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS) / 255f);
-        } catch (Exception ignored) {}
-        
-        brightSlider.setOnTouchListener((v, event) -> {
-            int val = Math.round(brightSlider.getProgress() * 255f);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.System.canWrite(this)) {
-                Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, val);
-            }
-            return false;
-        });
-
-        int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        volumeSlider.setProgress((float) currentVol / (float) maxVol);
-        volumeSlider.setOnTouchListener((v, event) -> {
+        if (bluetoothAdapter != null) bluetoothBtn.setBackgroundColor(bluetoothAdapter.isEnabled() ? 0xFF007AFF : 0xFF444444);
+bluetoothBtn.setOnClickListener(v -> {
+if (bluetoothAdapter != null) {
+if (bluetoothAdapter.isEnabled()) {
+bluetoothAdapter.disable();
+bluetoothBtn.setBackgroundColor(0xFF444444);
+} else {
+Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+enableBtIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(enableBtIntent);
+}
+}
+});
+bluetoothReceiver = new BroadcastReceiver() {
+@Override
+public void onReceive(Context context, Intent intent) {
+int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+if (state == BluetoothAdapter.STATE_ON) bluetoothBtn.setBackgroundColor(0xFF007AFF);
+if (state == BluetoothAdapter.STATE_OFF) bluetoothBtn.setBackgroundColor(0xFF444444);
+}
+};
+registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+// --- 3. FLASHLIGHT UTILITY ---
+torchBtn.setOnClickListener(v -> {
+if (cameraManager != null && cameraId != null) {
+try {
+isFlashlightOn = !isFlashlightOn;
+cameraManager.setTorchMode(cameraId, isFlashlightOn);
+torchBtn.setBackgroundColor(isFlashlightOn ? 0xFF007AFF : 0xFF444444);
+} catch (Exception ignored) {}
+}
+});
+// --- 4. SCREEN MIRRORING SHORTCUT ---
+// Instantly hooks to the Android Cast dialog utility pipeline layout
+View mirrorContainer = masterView.findViewById(R.id.ccVolume).getRootView();
+View mirroringTargetLayout = mirrorContainer.findViewWithTag("mirrorTarget");
+if (mirroringTargetLayout != null) {
+mirroringTargetLayout.setOnClickListener(v -> {
+Intent castIntent = new Intent(Settings.ACTION_CAST_SETTINGS);
+castIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(castIntent);
+});
+}
+// --- 5. SYSTEM AUDIO & SLIDERS ---
+try {
+brightSlider.setProgress((float) Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS) / 255f);
+} catch (Exception ignored) {}
+brightSlider.setOnTouchListener((v, event) -> {
+int val = Math.round(brightSlider.getProgress() * 255f);
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.System.canWrite(this)) {
+Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, val);
+}
+return false;
+});
+int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+volumeSlider.setProgress((float) currentVol / (float) maxVol);
+volumeSlider.setOnTouchListener((v, event) -> {
 int targetVol = Math.round(volumeSlider.getProgress() * audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0);
 return false;
 });
-// Corner Drag Gesture Pipeline Execution
+// --- 6. DRAG MECHANICS EDGE TRACKER ---
 dragTriggerView.setOnTouchListener((v, event) -> {
 float rawY = event.getRawY();
 switch (event.getAction()) {
@@ -288,6 +342,44 @@ return true;
 return false;
 });
 }
+// --- 7. NOW PLAYING MEDIA HARDWARE SYNCHRONIZATION ---
+private void initMediaPlaybackEngine() {
+final TextView trackTitle = masterView.findViewById(R.id.ccTrackTitle);
+final ImageView playPauseBtn = masterView.findViewById(R.id.ccMediaPlayPause);
+if (mediaSessionManager != null) {
+try {
+List controllers = mediaSessionManager.getActiveSessions(null);
+if (!controllers.isEmpty()) {
+activeMediaController = controllers.get(0);
+updateMediaUI(trackTitle, playPauseBtn);
+}
+} catch (Exception ignored) {
+trackTitle.setText("Not Playing");
+}
+}
+playPauseBtn.setOnClickListener(v -> {
+if (activeMediaController != null) {
+PlaybackState pbState = activeMediaController.getPlaybackState();
+if (pbState != null && pbState.getState() == PlaybackState.STATE_PLAYING) {
+activeMediaController.getTransportControls().pause();
+playPauseBtn.setImageResource(android.graphics.drawable.ic_media_play);
+} else if (activeMediaController != null) {
+activeMediaController.getTransportControls().play();
+playPauseBtn.setImageResource(android.graphics.drawable.ic_media_pause);
+}
+}
+});
+}
+private void updateMediaUI(TextView title, ImageView button) {
+if (activeMediaController != null && activeMediaController.getMetadata() != null) {
+String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
+title.setText(name != null ? name : "Unknown Track");
+}
+if (activeMediaController != null && activeMediaController.getPlaybackState() != null) {
+boolean playing = activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING;
+button.setImageResource(playing ? android.graphics.drawable.ic_media_pause : android.graphics.drawable.ic_media_play);
+}
+}
 private void updateWindowFlags(boolean focusable) {
 if (focusable) {
 baseParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
@@ -306,5 +398,6 @@ if (masterView != null) windowManager.removeView(masterView);
 if (dragTriggerView != null) windowManager.removeView(dragTriggerView);
 if (clockTimer != null) clockTimer.cancel();
 if (volumeReceiver != null) unregisterReceiver(volumeReceiver);
-   }
+if (bluetoothReceiver != null) unregisterReceiver(bluetoothReceiver);
+}
 }
