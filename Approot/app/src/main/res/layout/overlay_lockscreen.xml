@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://android.com"
+    android:id="@+id/lockRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:visibility="gone">
+
+    <!-- 1. FULL CANVAS WALLPAPER LAYER -->
+    <ImageView
+        android:id="@+id/lockWallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@android:drawable/sym_def_app_icon" /> <!-- Replace this source with a crisp iOS stock image later -->
+
+    <!-- 2. TOP ALIGNED CLOCK CLUSTER -->
+    <LinearLayout
+        android:id="@+id/lockClockGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="70dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <!-- Date String Header -->
+        <TextView
+            android:id="@+id/lockDateText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FRIDAY, 6 NOVEMBER"
+            android:textColor="#E5FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"/>
+
+        <!-- Heavy iOS Typography Bold Clock Face -->
+        <TextView
+            android:id="@+id/lockClockText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="09:41"
+            android:textColor="#FFFFFF"
+            android:textSize="84sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:letterSpacing="-0.02"/>
+    </LinearLayout>
+
+    <!-- 3. BOTTOM SLIDING GRABBER HINT INDICATOR -->
+    <LinearLayout
+        android:id="@+id/lockBottomHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="40dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Swipe up to unlock"
+            android:textColor="#B3FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"/>
+
+        <!-- Sleek Home Indicator Bar Hint -->
+        <View
+            android:layout_width="140dp"
+            android:layout_height="5dp"
+            android:layout_marginTop="12dp"
+            android:background="#FFFFFF"
+            android:backgroundTint="#FFFFFF"
+            android:layerType="hardware"/>
+    </LinearLayout>
+
+</RelativeLayout>
