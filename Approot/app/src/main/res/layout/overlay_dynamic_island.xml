@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://android.com"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:clipChildren="false">
+
+        <!-- PRIMARY CONTEXT PILL COMPONENT -->
+        <RelativeLayout
+            android:id="@+id/islandBasePill"
+            android:layout_width="110dp"
+            android:layout_height="30dp"
+            android:background="@android:color/black"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <!-- Content Tray A: Icon Indicator Pointers -->
+            <ImageView
+                android:id="@+id/islandLeftIcon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"
+                android:src="@android:drawable/ic_lock_silent_mode"
+                android:visibility="gone"/>
+
+            <!-- Content Tray B: Text Status Readout Notifications -->
+            <TextView
+                android:id="@+id/islandCenterText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="Silent"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone"/>
+
+            <!-- Content Tray C: Live Music Visualizer Bars Box -->
+            <LinearLayout
+                android:id="@+id/islandVisualizerGroup"
+                android:layout_width="20dp"
+                android:layout_height="14dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"
+                android:gravity="bottom"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <View android:layout_width="2dp" android:layout_height="8dp" android:background="#1DB954" android:layout_marginEnd="1dp"/>
+                <View android:layout_width="2dp" android:layout_height="14dp" android:background="#1DB954" android:layout_marginEnd="1dp"/>
+                <View android:layout_width="2dp" android:layout_height="11dp" android:background="#1DB954"/>
+            </LinearLayout>
+
+        </RelativeLayout>
+
+        <!-- DUAL-ACTIVITY SECONDARY DETACHED BUBBLE -->
+        <View
+            android:id="@+id/islandSplitBubble"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginStart="8dp"
+            android:background="@android:color/black"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+</FrameLayout>
