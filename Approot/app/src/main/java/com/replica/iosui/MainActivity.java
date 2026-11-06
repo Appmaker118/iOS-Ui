@@ -1,5 +1,7 @@
 package com.replica.iosui;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -18,12 +20,18 @@ import com.replica.iosui.physics.IOSSpringAnimator;
 import com.replica.iosui.services.IOSLockScreenService;
 import com.replica.iosui.services.IOSStatusBarService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     private GridLayout appsGridLayout;
     private PackageManager packageManager;
+    
+    // Edit Mode State Variables
+    private boolean isEditModeActive = false;
+    private final List<View> appCardViewsList = new ArrayList<>();
+    private final List<ObjectAnimator> activeJiggleAnimators = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,44 +41,53 @@ public class MainActivity extends AppCompatActivity {
         appsGridLayout = findViewById(R.id.appsGrid);
         packageManager = getPackageManager();
 
-        // 1. BOOT BACKGROUND SYSTEM SERVICE LAYERS
         startService(new Intent(this, IOSStatusBarService.class));
         startService(new Intent(this, IOSLockScreenService.class));
 
-        // 2. CONSTRUCT INSTALLED APPLICATION SECTOR INTERFACES
         loadDeviceApplications();
+
+        // Tapping the background blank desk sheet instantly cancels active editing
+        findViewById(R.id.launcherWallpaper).setOnClickListener(v -> {
+            if (isEditModeActive) {
+                exitEditJiggleMode();
+            }
+        });
     }
 
     private void loadDeviceApplications() {
         Intent startupIntent = new Intent(Intent.ACTION_MAIN, null);
         startupIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-
-        // Fetch application pointer structures via native package managers safely
         List<ResolveInfo> availableActivities = packageManager.queryIntentActivities(startupIntent, 0);
 
         for (final ResolveInfo appInfo : availableActivities) {
-            View appCard = LayoutInflater.from(this).inflate(R.layout.item_ios_app, appsGridLayout, false);
+            final View appCard = LayoutInflater.from(this).inflate(R.layout.item_ios_app, appsGridLayout, false);
             
             CardView frame = appCard.findViewById(R.id.iconCardFrame);
             ImageView iconImg = appCard.findViewById(R.id.appIconImage);
             TextView labelTxt = appCard.findViewById(R.id.appLabelText);
+            final View deleteBadge = appCard.findViewById(R.id.deleteBadge);
 
-            // Fetch app parameters
-            CharSequence nameLabel = appInfo.loadLabel(packageManager);
-            Drawable iconDrawable = appInfo.loadIcon(packageManager);
-            final String targetPackage = appInfo.activityInfo.packageName;
-
-            labelTxt.setText(nameLabel);
-            iconImg.setImageDrawable(iconDrawable);
-
-            // Apply exact mathematical 22% corner radius properties to match iOS design
+            labelTxt.setText(appInfo.loadLabel(packageManager));
+            iconImg.setImageDrawable(appInfo.loadIcon(packageManager));
             frame.setRadius(dpToPx(13)); 
 
-            // Wire up the physics scale-down press effect when tapping an icon
+            appCardViewsList.add(appCard);
+
+            // --- WIRE LONG PRESS EVENT TO START EDIT MODE ---
+            appCard.setOnLongClickListener(v -> {
+                if (!isEditModeActive) {
+                    enterEditJiggleMode();
+                }
+                return true;
+            });
+
+            // --- TOUCH LOGIC COMPATIBLE WITH ACTIVE JIGGLE MODES ---
             appCard.setOnTouchListener(new View.OnTouchListener() {
                 private float currentScale = 1.0f;
                 @Override
                 public boolean onTouch(View v, MotionEvent event) {
+                    if (isEditModeActive) return false; // Bypass scale shifts when editing
+
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
                             new IOSSpringAnimator(appCard).animateTo(currentScale, 0.88f, val -> {
@@ -78,8 +95,8 @@ public class MainActivity extends AppCompatActivity {
                                 appCard.setScaleX(val);
                                 appCard.setScaleY(val);
                             });
-                            return true;
-                            
+                            return false; // Return false so LongClickListener can still trigger
+
                         case MotionEvent.ACTION_UP:
                             new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
                                 currentScale = val;
@@ -87,8 +104,7 @@ public class MainActivity extends AppCompatActivity {
                                 appCard.setScaleY(val);
                             });
                             
-                            // Smoothly launch the selected app
-                            Intent launchIntent = packageManager.getLaunchIntentForPackage(targetPackage);
+                            Intent launchIntent = packageManager.getLaunchIntentForPackage(appInfo.activityInfo.packageName);
                             if (launchIntent != null) {
                                 startActivity(launchIntent);
                                 overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
@@ -107,12 +123,76 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            // Inject the configured app card view directly into the layout workspace grid
+            // Delete button shortcut behavior template hook
+            deleteBadge.setOnClickListener(v -> {
+                appsGridLayout.removeView(appCard);
+                appCardViewsList.remove(appCard);
+            });
+
             appsGridLayout.addView(appCard);
+        }
+    }
+
+    private void enterEditJiggleMode() {
+        isEditModeActive = true;
+        
+        // Randomly offset the initial start point of each icon's animation so they don't jiggle perfectly in sync
+        java.util.Random rand = new java.util.Random();
+
+        for (View card : appCardViewsList) {
+            View badge = card.findViewById(R.id.deleteBadge);
+            badge.setVisibility(View.VISIBLE);
+            
+            // Pop badge into view cleanly with a mini bounce scale effect
+            badge.setScaleX(0f); badge.setScaleY(0f);
+            new IOSSpringAnimator(badge).animateTo(0f, 1f, val -> {
+                badge.setScaleX(val);
+                badge.setScaleY(val);
+            });
+
+            // Set up the rapid back-and-forth rotational jiggle loop
+            ObjectAnimator rotateAnim = ObjectAnimator.ofFloat(card, "rotation", -1.8f, 1.8f);
+            rotateAnim.setDuration(120 + rand.nextInt(40)); // Alternate speeds slightly
+            rotateAnim.setRepeatMode(ValueAnimator.REVERSE);
+            rotateAnim.setRepeatCount(ValueAnimator.INFINITE);
+            rotateAnim.start();
+            
+            activeJiggleAnimators.add(rotateAnim);
+        }
+    }
+
+    private void exitEditJiggleMode() {
+        isEditModeActive = false;
+
+        // Stop all active rotation loops instantly
+        for (ObjectAnimator anim : activeJiggleAnimators) {
+            anim.cancel();
+        }
+        activeJiggleAnimators.clear();
+
+        // Smoothly snap all icons back to zero rotation and hide the delete badges
+        for (View card : appCardViewsList) {
+            card.setRotation(0f);
+            final View badge = card.findViewById(R.id.deleteBadge);
+            
+            new IOSSpringAnimator(badge).animateTo(badge.getScaleX(), 0f, val -> {
+                badge.setScaleX(val);
+                badge.setScaleY(val);
+                if (val <= 0.05f) badge.setVisibility(View.GONE);
+            });
         }
     }
 
     private int dpToPx(int dp) {
         return Math.round((float) dp * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isEditModeActive) {
+            exitEditJiggleMode();
+        } else {
+            super.onBackPressed();
+        }
     }
 }
