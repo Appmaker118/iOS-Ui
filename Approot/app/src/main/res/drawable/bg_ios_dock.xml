@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://android.com"
+    android:shape="rectangle">
+    <!-- Perfect 32dp corner geometry mirroring modern iOS bottom shelf designs -->
+    <corners android:radius="32dp" />
+    <!-- Frosted translucent overlay tint optimized for high framerates -->
+    <solid android:color="#4DFFFFFF" /> 
+</shape>
