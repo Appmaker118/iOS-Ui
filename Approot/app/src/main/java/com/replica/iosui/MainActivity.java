@@ -226,3 +226,22 @@ public class MainActivity extends AppCompatActivity {
             super(v);
             libraryGrid = v.findViewById(R.id.libraryGrid);
             searchBar = v.findViewById(R.id.searchBarInput);
+            }
+public void populateLibrary(List allApps) {
+libraryGrid.removeAllViews();
+for (ResolveInfo app : allApps) libraryGrid.addView(createAppIconCard(app));
+searchBar.addTextChangedListener(new TextWatcher() {
+@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+@Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+libraryGrid.removeAllViews();
+for (ResolveInfo app : allApps) {
+if (app.loadLabel(packageManager).toString().toLowerCase().contains(s.toString().toLowerCase())) {
+libraryGrid.addView(createAppIconCard(app));
+}
+}
+}
+@Override public void afterTextChanged(Editable s) {}
+});
+}
+}
+}
