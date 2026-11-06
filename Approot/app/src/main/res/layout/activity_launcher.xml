@@ -7,7 +7,7 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- 1. CANVAS WALLPAPER BACKGROUND -->
+    <!-- 1. CANVAS WALLPAPER -->
     <ImageView
         android:id="@+id/launcherWallpaper"
         android:layout_width="match_parent"
@@ -15,7 +15,7 @@
         android:scaleType="centerCrop"
         android:src="@android:drawable/sym_def_app_icon"/>
 
-    <!-- 2. HORIZONTAL PAGES WORKSPACE VIEW -->
+    <!-- 2. HOME WORKSPACE VIEW PAGES -->
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/homeViewPager"
         android:layout_width="match_parent"
@@ -25,7 +25,25 @@
         android:clipChildren="false"
         android:clipToPadding="false"/>
 
-    <!-- 3. CLASSIC iOS DOT PAGE INDICATORS -->
+    <!-- 3. CONFIGURATION CALIBRATION SLIDER OVERLAY PANEL -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="60dp"
+        android:background="#99000000"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:elevation="10dp">
+        
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island X Offset" android:textColor="#FFF"/>
+        <SeekBar android:id="@+id/sliderX" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000"/>
+        
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island Y Offset" android:textColor="#FFF" android:layout_marginTop="4dp"/>
+        <SeekBar android:id="@+id/sliderY" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="300"/>
+    </LinearLayout>
+
+    <!-- 4. DOT INDICATORS -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/pageIndicatorDots"
         android:layout_width="wrap_content"
@@ -38,7 +56,7 @@
         app:tabIndicatorHeight="0dp"
         app:tabRippleColor="@android:color/transparent"/>
 
-    <!-- 4. FLOATING FROSTED GLASS DOCK CONTAINER SHEET -->
+    <!-- 5. FROSTED DOCK -->
     <LinearLayout
         android:id="@+id/iosDockShelf"
         android:layout_width="match_parent"
@@ -50,11 +68,8 @@
         android:background="@drawable/bg_ios_dock"
         android:orientation="horizontal"
         android:gravity="center"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
         android:weightSum="4"
         android:clipChildren="false"
-        android:clipToPadding="false"
         android:layerType="hardware"/>
 
 </RelativeLayout>
