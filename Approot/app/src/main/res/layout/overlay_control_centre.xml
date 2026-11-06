@@ -1,108 +1,144 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://android.com"
-    android:id="@+id/ccRoot"
+<FrameLayout xmlns:android="http://android.com"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#99000000"
-    android:paddingTop="60dp"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:clipChildren="false">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <!-- Scroll container to easily view all modules on varying screen scales -->
-    <ScrollView
+    <!-- 1. SYSTEM CONTROL CENTRE INJECTABLE SLIDING TRAY -->
+    <RelativeLayout
+        android:id="@+id/ccRoot"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scrollbars="none"
+        android:background="#E6000000"
+        android:paddingTop="80dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
         android:clipChildren="false">
 
-        <GridLayout
+        <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:columnCount="2"
-            android:alignmentMode="alignBounds"
-            android:columnOrderPreserved="false"
-            android:useDefaultMargins="true">
+            android:layout_height="match_parent"
+            android:scrollbars="none"
+            android:clipChildren="false">
 
-            <!-- ROW 1, LEFT: Network Pod (2x2 internal toggles) -->
             <GridLayout
-                android:layout_width="165dp"
-                android:layout_height="165dp"
-                android:background="@drawable/bg_ios_pod"
-                android:padding="12dp"
+                android:id="@+id/ccGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:columnCount="2"
-                android:rowCount="2">
-                
-                <ImageView android:id="@+id/ccWifi" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#2233FF" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
-                <ImageView android:id="@+id/ccBluetooth" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#2233FF" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
-                <ImageView android:id="@+id/ccCellular" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
-                <ImageView android:id="@+id/ccAirplane" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
+                android:useDefaultMargins="true"
+                android:alignmentMode="alignBounds">
+
+                <!-- POD 1: Network Toggles Matrix -->
+                <GridLayout
+                    android:layout_width="165dp"
+                    android:layout_height="165dp"
+                    android:background="@drawable/bg_ios_pod"
+                    android:padding="12dp"
+                    android:columnCount="2"
+                    android:rowCount="2">
+                    <ImageView android:id="@+id/ccWifi" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details"/>
+                    <ImageView android:id="@+id/ccBluetooth" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#007AFF" android:padding="16dp" android:src="@android:drawable/ic_menu_compass"/>
+                    <ImageView android:id="@+id/ccCellular" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_mylocation"/>
+                    <ImageView android:id="@+id/ccAirplane" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_send"/>
+                </GridLayout>
+
+                <!-- POD 2: Display & Audio Sliders Block -->
+                <LinearLayout
+                    android:layout_width="165dp"
+                    android:layout_height="165dp"
+                    android:background="@drawable/bg_ios_pod"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:padding="14dp">
+                    <com.replica.iosui.views.IOSSliderView android:id="@+id/ccBrightness" android:layout_width="58dp" android:layout_height="match_parent" android:layout_marginEnd="14dp"/>
+                    <com.replica.iosui.views.IOSSliderView android:id="@+id/ccVolume" android:layout_width="58dp" android:layout_height="match_parent"/>
+                </LinearLayout>
+
+                <!-- POD 3: Quick Utilities Stack (Flashlight) -->
+                <GridLayout
+                    android:layout_width="165dp"
+                    android:layout_height="80dp"
+                    android:background="@drawable/bg_ios_pod"
+                    android:padding="8dp"
+                    android:columnCount="2">
+                    <ImageView android:id="@+id/ccFlashlight" android:layout_width="54dp" android:layout_height="54dp" android:layout_margin="4dp" android:background="#444444" android:padding="14dp" android:src="@android:drawable/btn_star_big_off"/>
+                </GridLayout>
+
             </GridLayout>
+        </ScrollView>
+    </RelativeLayout>
 
-            <!-- Append these utility pod components directly inside the ccGrid container -->
-           <GridLayout
-                android:layout_width="165dp"
-                android:layout_height="76dp"
-                android:background="@drawable/bg_ios_pod"
-                android:padding="8dp"
-                android:columnCount="2"
-                android:rowCount="1">
+    <!-- 2. NATIVE STATUS BAR FRAME LAYOUT OVERRIDE -->
+    <RelativeLayout
+        android:id="@+id/statusBarContainer"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="#FF000000"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:layout_gravity="top">
 
-                <ImageView android:id="@+id/ccFlashlight"  android:layout_width="52dp" android:layout_height="52dp" android:layout_margin="4dp" android:background="#444444" android:padding="14dp"  android:src="@android:drawable/btn_star_big_off" />
-        
-           </GridLayout>
+        <TextView
+            android:id="@+id/statusBarTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="9:41"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"/>
 
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <!-- ROW 1, RIGHT: Now Playing Media Pod -->
+            <TextView
+                android:id="@+id/statusBarSignal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="5G"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginEnd="6dp"
+                android:textStyle="bold"/>
+
             <RelativeLayout
-                android:layout_width="165dp"
-                android:layout_height="165dp"
-                android:background="@drawable/bg_ios_pod"
-                android:padding="16dp">
-                
-                <TextView android:id="@+id/ccTrackTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Not Playing" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp"/>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_below="@id/ccTrackTitle" android:text="iPhone" android:textColor="#8E8E93" android:textSize="13sp"/>
-                
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_alignParentBottom="true" android:gravity="center" android:orientation="horizontal">
-                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_media_previous" android:layout_marginEnd="16dp"/>
-                    <ImageView android:id="@+id/ccMediaPlayPause" android:layout_width="36dp" android:layout_height="36dp" android:src="@android:drawable/ic_media_play"/>
-                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_media_next" android:layout_marginStart="16dp"/>
-                </LinearLayout>
+                android:id="@+id/batteryContainer"
+                android:layout_width="24dp"
+                android:layout_height="12dp"
+                android:background="@drawable/ios_battery_shape">
+                <View
+                    android:id="@+id/batteryLevelFill"
+                    android:layout_width="16dp"
+                    android:layout_height="match_parent"
+                    android:layout_margin="1.5dp"
+                    android:background="@drawable/ios_battery_fill"/>
             </RelativeLayout>
+        </LinearLayout>
+    </RelativeLayout>
 
-            <!-- ROW 2, LEFT: Toggles Group (Focus & Screen Mirroring Layout Stack) -->
-            <LinearLayout
-                android:layout_width="165dp"
-                android:layout_height="165dp"
-                android:orientation="vertical"
-                android:clipChildren="false">
+    <!-- 3. VOLUMETRIC SIDE INTERACTIVEHUD INTERFACE CONTAINER -->
+    <LinearLayout
+        android:id="@+id/hudContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="140dp"
+        android:layout_gravity="center_vertical|start"
+        android:layout_marginStart="12dp"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:clipChildren="false">
+        <com.replica.iosui.views.IOSSliderView
+            android:id="@+id/hudSlider"
+            android:layout_width="14dp"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
 
-                <!-- Focus Mode Pill -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="76dp" android:background="@drawable/bg_ios_pod" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp" android:layout_marginBottom="13dp">
-                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_lock_silent_mode"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Focus" android:textColor="#FFFFFF" android:layout_marginStart="8dp" android:textStyle="bold"/>
-                </LinearLayout>
-
-                <!-- Screen Mirroring Pill -->
-                <LinearLayout android:layout_width="match_parent" android:layout_height="76dp" android:background="@drawable/bg_ios_pod" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp">
-                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_view"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mirroring" android:textColor="#FFFFFF" android:layout_marginStart="8dp" android:textSize="12sp" android:textStyle="bold"/>
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- ROW 2, RIGHT: Twin Hardware Core System Sliders Container -->
-            <LinearLayout
-                android:layout_width="165dp"
-                android:layout_height="165dp"
-                android:background="@drawable/bg_ios_pod"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:padding="14dp">
-                
-                <com.replica.iosui.views.IOSSliderView android:id="@+id/ccBrightness" android:layout_width="58dp" android:layout_height="match_parent" android:layout_marginEnd="14dp" />
-                <com.replica.iosui.views.IOSSliderView android:id="@+id/ccVolume" android:layout_width="58dp" android:layout_height="match_parent" />
-            </LinearLayout>
-
-        </GridLayout>
-    </ScrollView>
-</RelativeLayout>
+</FrameLayout>
