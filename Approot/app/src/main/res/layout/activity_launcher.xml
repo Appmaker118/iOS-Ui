@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://android.com"
+    xmlns:app="http://android.com"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000"
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- 1. SYSTEM DESKTOP WALLPAPER CANVAS SHEET -->
+    <!-- 1. SYSTEM DESKTOP WALLPAPER -->
     <ImageView
         android:id="@+id/launcherWallpaper"
         android:layout_width="match_parent"
@@ -14,27 +15,27 @@
         android:scaleType="centerCrop"
         android:src="@android:drawable/sym_def_app_icon"/>
 
-    <!-- 2. HIGH DENSITY SCROLLABLE APPLICATION INTERFACE WORKSPACE GRID -->
-    <ScrollView
+    <!-- 2. HORIZONTAL PAGES CONTAINER -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/homeViewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="50dp"
         android:layout_marginBottom="110dp"
-        android:scrollbars="none"
         android:clipChildren="false"
-        android:clipToPadding="false">
+        android:clipToPadding="false"/>
 
-        <GridLayout
-            android:id="@+id/appsGrid"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:columnCount="4"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:useDefaultMargins="false"
-            android:clipChildren="false"
-            android:clipToPadding="false"/>
-            
-    </ScrollView>
+    <!-- 3. CLASSIC iOS DOT PAGE INDICATORS -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/pageIndicatorDots"
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="115dp"
+        android:background="@android:color/transparent"
+        app:tabBackground="@android:drawable/radiobutton_off_background"
+        app:tabIndicatorHeight="0dp"
+        app:tabRippleColor="@android:color/transparent"/>
 
 </RelativeLayout>
