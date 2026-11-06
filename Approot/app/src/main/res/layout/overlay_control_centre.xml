@@ -3,68 +3,92 @@
     android:id="@+id/ccRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E6000000"
+    android:background="#99000000"
     android:paddingTop="60dp"
     android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:paddingEnd="16dp"
+    android:clipChildren="false">
 
-    <!-- Grid Container Layout Positioning -->
-    <GridLayout
-        android:id="@+id/ccGrid"
+    <!-- Scroll container to easily view all modules on varying screen scales -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:columnCount="2"
-        android:rowCount="2"
-        android:useDefaultMargins="true">
+        android:layout_height="match_parent"
+        android:scrollbars="none"
+        android:clipChildren="false">
 
-        <!-- POD 1: Network Toggles (Top Left) -->
         <GridLayout
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:background="@drawable/bg_ios_pod"
-            android:padding="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:columnCount="2"
-            android:rowCount="2">
-            
-            <ImageView
-                android:id="@+id/toggleWifi"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_margin="6dp"
-                android:background="@android:color/holo_blue_dark"
-                android:padding="14dp"
-                android:src="@android:drawable/ic_dialog_info"/>
+            android:alignmentMode="alignBounds"
+            android:columnOrderPreserved="false"
+            android:useDefaultMargins="true">
 
-            <ImageView
-                android:id="@+id/toggleBluetooth"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_margin="6dp"
-                android:background="@android:color/holo_blue_dark"
-                android:padding="14dp"
-                android:src="@android:drawable/ic_dialog_info"/>
+            <!-- ROW 1, LEFT: Network Pod (2x2 internal toggles) -->
+            <GridLayout
+                android:layout_width="165dp"
+                android:layout_height="165dp"
+                android:background="@drawable/bg_ios_pod"
+                android:padding="12dp"
+                android:columnCount="2"
+                android:rowCount="2">
+                
+                <ImageView android:id="@+id/ccWifi" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#2233FF" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
+                <ImageView android:id="@+id/ccBluetooth" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#2233FF" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
+                <ImageView android:id="@+id/ccCellular" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
+                <ImageView android:id="@+id/ccAirplane" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="8dp" android:background="#444444" android:padding="16dp" android:src="@android:drawable/ic_menu_info_details" android:elevation="2dp"/>
+            </GridLayout>
+
+            <!-- ROW 1, RIGHT: Now Playing Media Pod -->
+            <RelativeLayout
+                android:layout_width="165dp"
+                android:layout_height="165dp"
+                android:background="@drawable/bg_ios_pod"
+                android:padding="16dp">
+                
+                <TextView android:id="@+id/ccTrackTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Not Playing" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_below="@id/ccTrackTitle" android:text="iPhone" android:textColor="#8E8E93" android:textSize="13sp"/>
+                
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_alignParentBottom="true" android:gravity="center" android:orientation="horizontal">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_media_previous" android:layout_marginEnd="16dp"/>
+                    <ImageView android:id="@+id/ccMediaPlayPause" android:layout_width="36dp" android:layout_height="36dp" android:src="@android:drawable/ic_media_play"/>
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_media_next" android:layout_marginStart="16dp"/>
+                </LinearLayout>
+            </RelativeLayout>
+
+            <!-- ROW 2, LEFT: Toggles Group (Focus & Screen Mirroring Layout Stack) -->
+            <LinearLayout
+                android:layout_width="165dp"
+                android:layout_height="165dp"
+                android:orientation="vertical"
+                android:clipChildren="false">
+
+                <!-- Focus Mode Pill -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="76dp" android:background="@drawable/bg_ios_pod" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp" android:layout_marginBottom="13dp">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_lock_silent_mode"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Focus" android:textColor="#FFFFFF" android:layout_marginStart="8dp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <!-- Screen Mirroring Pill -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="76dp" android:background="@drawable/bg_ios_pod" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_view"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mirroring" android:textColor="#FFFFFF" android:layout_marginStart="8dp" android:textSize="12sp" android:textStyle="bold"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ROW 2, RIGHT: Twin Hardware Core System Sliders Container -->
+            <LinearLayout
+                android:layout_width="165dp"
+                android:layout_height="165dp"
+                android:background="@drawable/bg_ios_pod"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:padding="14dp">
+                
+                <com.replica.iosui.views.IOSSliderView android:id="@+id/ccBrightness" android:layout_width="58dp" android:layout_height="match_parent" android:layout_marginEnd="14dp" />
+                <com.replica.iosui.views.IOSSliderView android:id="@+id/ccVolume" android:layout_width="58dp" android:layout_height="match_parent" />
+            </LinearLayout>
+
         </GridLayout>
-
-        <!-- POD 2: Sliders Grid Pod (Top Right) -->
-        <LinearLayout
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:background="@drawable/bg_ios_pod"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:padding="12dp">
-
-            <com.replica.iosui.views.IOSSliderView
-                android:id="@+id/ccBrightness"
-                android:layout_width="54dp"
-                android:layout_height="match_parent"
-                android:layout_marginEnd="12dp"/>
-
-            <com.replica.iosui.views.IOSSliderView
-                android:id="@+id/ccVolume"
-                android:layout_width="54dp"
-                android:layout_height="match_parent"/>
-        </LinearLayout>
-        
-    </GridLayout>
+    </ScrollView>
 </RelativeLayout>
