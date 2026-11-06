@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://android.com"
+    android:shape="rectangle">
+    <corners android:radius="18dp" />
+    <solid android:color="#2C2C2E" /> <!-- Deep matte iOS control dark color -->
+</shape>
