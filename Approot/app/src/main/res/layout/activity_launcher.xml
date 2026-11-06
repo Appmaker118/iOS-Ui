@@ -7,7 +7,7 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- 1. SYSTEM DESKTOP WALLPAPER -->
+    <!-- 1. CANVAS WALLPAPER BACKGROUND -->
     <ImageView
         android:id="@+id/launcherWallpaper"
         android:layout_width="match_parent"
@@ -15,7 +15,7 @@
         android:scaleType="centerCrop"
         android:src="@android:drawable/sym_def_app_icon"/>
 
-    <!-- 2. HORIZONTAL PAGES CONTAINER -->
+    <!-- 2. HORIZONTAL PAGES WORKSPACE VIEW -->
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/homeViewPager"
         android:layout_width="match_parent"
@@ -32,10 +32,29 @@
         android:layout_height="20dp"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="115dp"
+        android:layout_marginBottom="122dp"
         android:background="@android:color/transparent"
         app:tabBackground="@android:drawable/radiobutton_off_background"
         app:tabIndicatorHeight="0dp"
         app:tabRippleColor="@android:color/transparent"/>
+
+    <!-- 4. FLOATING FROSTED GLASS DOCK CONTAINER SHEET -->
+    <LinearLayout
+        android:id="@+id/iosDockShelf"
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_ios_dock"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:weightSum="4"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layerType="hardware"/>
 
 </RelativeLayout>
