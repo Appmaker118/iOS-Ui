@@ -15,13 +15,18 @@ private VolumeKeyReceiver volumeReceiver;
 private Handler hudDismissHandler;
 private Runnable dismissRunnable;
 private WindowManager.LayoutParams ccParams;
+private WindowManager.LayoutParams dragTriggerParams;
 private View controlCentreView;
 private View ccRootView;
+private View dragTriggerView;
+
 
 private boolean isCCVisible = false;
 
 private boolean isHudVisible = false;
 private boolean isExpanded = false;
+private float initialTouchY = 0f;
+private int displayHeight = 0;
 private float hudWidth = 14f; // Track active base layout dimensions
     // Initialize standard Android core audio hooks
     audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -29,6 +34,7 @@ private float hudWidth = 14f; // Track active base layout dimensions
 
     setupVolumeHUDWindow();
     setupControlCentreWindow();
+    setupDragTrackingTriggers();
     
     // Wire up tracking behaviors directly to hardware audio stream updates
     volumeReceiver = new VolumeKeyReceiver(new VolumeKeyReceiver.VolumeChangeListener() {
@@ -170,4 +176,91 @@ private float hudWidth = 14f; // Track active base layout dimensions
             });
         }
     }
+
+        private void setupDragTrackingTriggers() {
+        displayHeight = getResources().getDisplayMetrics().heightPixels;
+        int displayWidth = getResources().getDisplayMetrics().widthPixels;
+
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+        // Create an invisible intercept window overlay placed directly in the top-right corner zone
+        dragTriggerParams = new WindowManager.LayoutParams(
+                displayWidth / 3, // Target only the rightmost third of the status bar boundary
+                dpToPx(44),
+                layoutFlag,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        dragTriggerParams.gravity = Gravity.TOP | Gravity.END;
+
+        dragTriggerView = new View(this);
+        dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPAREMENT);
+        
+        // Dynamic touch handling architecture to slide the view container under the finger tracking paths
+        dragTriggerView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, android.view.MotionEvent event) {
+                float rawY = event.getRawY();
+                
+                switch (event.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        initialTouchY = rawY;
+                        prepareControlCentreForDragging();
+                        return true;
+
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        float deltaY = rawY - initialTouchY;
+                        if (deltaY > 0) {
+                            // Translate container down matching exact finger positions
+                            float translation = -displayHeight + deltaY;
+                            ccRootView.setTranslationY(Math.min(0f, translation));
+                        }
+                        return true;
+
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        float currentTranslation = ccRootView.getTranslationY();
+                        // Snap threshold point: if dragged past 25% of screen height, pop to full open
+                        if (currentTranslation > -displayHeight * 0.75f) {
+                            new com.replica.iosui.physics.IOSSpringAnimator(ccRootView).animateTo(currentTranslation, 0f, val -> {
+                                ccRootView.setTranslationY(val);
+                            });
+                        } else {
+                            // Spring snap backward and close cleanly
+                            new com.replica.iosui.physics.IOSSpringAnimator(ccRootView).animateTo(currentTranslation, -displayHeight, val -> {
+                                ccRootView.setTranslationY(val);
+                                if (val <= -displayHeight + 5f) {
+                                    removeControlCentreOverlay();
+                                }
+                            });
+                        }
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        windowManager.addView(dragTriggerView, dragTriggerParams);
+    }
+
+    private void prepareControlCentreForDragging() {
+        if (!isCCVisible) {
+            isCCVisible = true;
+            
+            // Temporary clear flags to allow the canvas layout panels to catch continuous scroll events gracefully
+            ccParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+            windowManager.addView(controlCentreView, ccParams);
+            ccRootView.setTranslationY(-displayHeight);
+        }
+    }
+
+    private void removeControlCentreOverlay() {
+        if (isCCVisible) {
+            windowManager.removeView(controlCentreView);
+            isCCVisible = false;
+        }
+    }
+
 
