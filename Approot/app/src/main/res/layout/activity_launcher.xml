@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://android.com"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- 1. SYSTEM DESKTOP WALLPAPER CANVAS SHEET -->
+    <ImageView
+        android:id="@+id/launcherWallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@android:drawable/sym_def_app_icon"/>
+
+    <!-- 2. HIGH DENSITY SCROLLABLE APPLICATION INTERFACE WORKSPACE GRID -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="50dp"
+        android:layout_marginBottom="110dp"
+        android:scrollbars="none"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <GridLayout
+            android:id="@+id/appsGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:useDefaultMargins="false"
+            android:clipChildren="false"
+            android:clipToPadding="false"/>
+            
+    </ScrollView>
+
+</RelativeLayout>
