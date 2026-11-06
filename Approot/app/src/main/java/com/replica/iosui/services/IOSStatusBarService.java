@@ -15,6 +15,7 @@ import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,9 +27,11 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.replica.iosui.R;
+import com.replica.iosui.physics.IOSSpringAnimator;
 import com.replica.iosui.views.IOSSliderView;
 
 import java.text.SimpleDateFormat;
@@ -40,6 +43,7 @@ import java.util.TimerTask;
 
 public class IOSStatusBarService extends Service {
 
+    private final IBinder binder = new LocalBinder();
     private WindowManager windowManager;
     private View masterView;
     
@@ -50,6 +54,14 @@ public class IOSStatusBarService extends Service {
     private IOSSliderView hudSlider;
     private View dragTriggerView;
 
+    // Dynamic Island Layout Nodes
+    private View islandOverlayView;
+    private View islandBasePill;
+    private View islandSplitBubble;
+    private ImageView islandLeftIcon;
+    private TextView islandCenterText;
+    private View islandVisualizer;
+
     // Orchestration Systems
     private Timer clockTimer;
     private AudioManager audioManager;
@@ -58,10 +70,12 @@ public class IOSStatusBarService extends Service {
     private CameraManager cameraManager;
     private MediaSessionManager mediaSessionManager;
     private MediaController activeMediaController;
+    
     private BroadcastReceiver volumeReceiver;
     private BroadcastReceiver bluetoothReceiver;
+    private BroadcastReceiver batteryReceiver;
     
-    // State Framework Pointers
+    // State Pointer Frameworks
     private String cameraId;
     private boolean isFlashlightOn = false;
     private boolean isCCVisible = false;
@@ -74,12 +88,18 @@ public class IOSStatusBarService extends Service {
     
     private Handler hudDismissHandler;
     private Runnable dismissRunnable;
+    private Handler islandHandler;
     
     private WindowManager.LayoutParams baseParams;
     private WindowManager.LayoutParams dragParams;
+    private WindowManager.LayoutParams islandParams;
+
+    public class LocalBinder extends Binder {
+        public IOSStatusBarService getService() { return IOSStatusBarService.this; }
+    }
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
+    public IBinder onBind(Intent intent) { return binder; }
 
     @Override
     public void onCreate() {
@@ -89,23 +109,16 @@ public class IOSStatusBarService extends Service {
         displayHeight = getResources().getDisplayMetrics().heightPixels;
         int displayWidth = getResources().getDisplayMetrics().widthPixels;
         hudDismissHandler = new Handler(Looper.getMainLooper());
+        islandHandler = new Handler(Looper.getMainLooper());
 
-        // 1. HARDWARE SYSTEM INITIALIZERS
+        // 1. SERVICES
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
-        
         BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         if (bm != null) bluetoothAdapter = bm.getAdapter();
 
-        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            if (cameraManager != null && cameraManager.getCameraIdList().length > 0) {
-                cameraId = cameraManager.getCameraIdList()[0];
-            }
-        } catch (Exception ignored) {}
-
-        // 2. INFLATE MASTER INTERFACE CANVAS
+        // 2. INFLATE MAIN OVERLAY INTERFACE CARDS
         masterView = LayoutInflater.from(this).inflate(R.layout.overlay_control_centre, null);
         ccRootView = masterView.findViewById(R.id.ccRoot);
         statusBarView = masterView.findViewById(R.id.statusBarContainer);
@@ -126,7 +139,27 @@ public class IOSStatusBarService extends Service {
         baseParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(masterView, baseParams);
 
-        // 3. CREATE INVISIBLE INTERCEPT AREA FOR DRAG GESTURES
+        // 3. INFLATE DYNAMIC ISLAND SYSTEM
+        islandOverlayView = LayoutInflater.from(this).inflate(R.layout.overlay_dynamic_island, null);
+        islandBasePill = islandOverlayView.findViewById(R.id.islandBasePill);
+        islandSplitBubble = islandOverlayView.findViewById(R.id.islandSplitBubble);
+        islandLeftIcon = islandOverlayView.findViewById(R.id.islandLeftIcon);
+        islandCenterText = islandOverlayView.findViewById(R.id.islandCenterText);
+        islandVisualizer = islandOverlayView.findViewById(R.id.islandVisualizerGroup);
+
+        islandParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                layoutFlag,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        islandParams.gravity = Gravity.TOP | Gravity.START;
+        islandParams.x = displayWidth / 2 - dpToPx(55); // Centered default allocation
+        islandParams.y = dpToPx(6);
+        windowManager.addView(islandOverlayView, islandParams);
+
+        // 4. DRAG MECHANICS EDGE TRACKER INVISIBLE BOX
         dragParams = new WindowManager.LayoutParams(
                 displayWidth / 3,
                 dpToPx(44),
@@ -136,136 +169,167 @@ public class IOSStatusBarService extends Service {
         );
         dragParams.gravity = Gravity.TOP | Gravity.END;
         dragTriggerView = new View(this);
-        dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPAREMENT);
+        dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         windowManager.addView(dragTriggerView, dragParams);
 
-        // 4. INITIALIZE FUNCTIONAL LOOPS
+        // 5. BOOT FUNCTIONS
         initClockEngine();
         initVolumeHUDSystem();
         initDragAndHardwareUtilities();
         initMediaPlaybackEngine();
+        initIslandSystemListeners();
     }
 
-    private void initClockEngine() {
-        final TextView timeTextView = masterView.findViewById(R.id.statusBarTime);
-        final SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm", Locale.getDefault());
-        clockTimer = new Timer();
-        clockTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    timeTextView.setText(timeFormatter.format(new Date()));
-                });
-            }
-        }, 0, 1000);
+    // Live real-time alignment configuration access routines called by layout SeekBars
+    public void updateIslandPosition(int customX, int customY) {
+        if (islandOverlayView != null && islandParams != null) {
+            islandParams.x = customX;
+            islandParams.y = customY;
+            windowManager.updateViewLayout(islandOverlayView, islandParams);
+        }
     }
 
-    private void initVolumeHUDSystem() {
-        dismissRunnable = () -> hideVolumeHUD();
-        
-        hudSlider.setOnTouchListener((v, event) -> {
-            if (!isHudExpanded) {
-                isHudExpanded = true;
-                hudDismissHandler.removeCallbacks(dismissRunnable);
-                new com.replica.iosui.physics.IOSSpringAnimator(hudSlider).animateTo(hudWidth, 48f, val -> {
-                    hudWidth = val;
-                    hudSlider.getLayoutParams().width = dpToPx((int) val);
-                    hudSlider.requestLayout();
-                });
-            }
-            return false;
-        });
-
-        volumeReceiver = new BroadcastReceiver() {
+    private void initIslandSystemListeners() {
+        // --- BATTERY CHARGER SYSTEM PLUG-IN TRIGGER ---
+        batteryReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) {
-                    triggerVolumeHUDUpdate();
+                String action = intent.getAction();
+                if (Intent.ACTION_POWER_CONNECTED.equals(action)) {
+                    triggerIslandExpansion("Charging", android.graphics.drawable.ic_lock_idle_charging);
                 }
             }
         };
-        registerReceiver(volumeReceiver, new IntentFilter("android.media.VOLUME_CHANGED_ACTION"));
-    }
-
-    private void triggerVolumeHUDUpdate() {
-        hudDismissHandler.removeCallbacks(dismissRunnable);
-        int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        hudSlider.setProgress((float) currentVol / (float) maxVol);
-
-        if (!isHudVisible) {
-            isHudVisible = true;
-            hudContainer.setVisibility(View.VISIBLE);
-            hudContainer.setTranslationX(-dpToPx(40));
-            new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(-dpToPx(40), 0f, val -> hudContainer.setTranslationX(val));
-        }
-        hudDismissHandler.postDelayed(dismissRunnable, 2000);
-    }
-
-    private void hideVolumeHUD() {
-        if (isHudVisible) {
-            new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(hudContainer.getTranslationX(), -dpToPx(60), val -> {
-                hudContainer.setTranslationX(val);
-                if (val <= -dpToPx(58)) {
-                    isHudVisible = false;
-                    isHudExpanded = false;
-                    hudContainer.setVisibility(View.GONE);
-                    hudWidth = 14f;
-                    hudSlider.getLayoutParams().width = dpToPx(14);
-                    hudSlider.requestLayout();
-                }
-            });
-        }
-    }
-
-    private void initDragAndHardwareUtilities() {
-        ImageView wifiBtn = masterView.findViewById(R.id.ccWifi);
-        ImageView bluetoothBtn = masterView.findViewById(R.id.ccBluetooth);
-        ImageView torchBtn = masterView.findViewById(R.id.ccFlashlight);
-        View mirrorBtn = masterView.findViewById(R.id.ccWifi).getRootView().findViewById(R.id.ccTrackTitle).getRootView(); 
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_POWER_CONNECTED);
+        registerReceiver(batteryReceiver, filter);
         
-        com.replica.iosui.views.IOSSliderView brightSlider = masterView.findViewById(R.id.ccBrightness);
-        com.replica.iosui.views.IOSSliderView volumeSlider = masterView.findViewById(R.id.ccVolume);
+        // Wire a long-press interaction to transform the capsule view panel
+        islandBasePill.setOnLongClickListener(v -> {
+            triggerIslandExpansion("Live Tracker Activity Active", android.graphics.drawable.ic_dialog_info);
+            return true;
+        });
+    }
 
-        // --- 1. WI-FI UTILITY ---
-        if (wifiManager != null) wifiBtn.setBackgroundColor(wifiManager.isWifiEnabled() ? 0xFF007AFF : 0xFF444444);
-        wifiBtn.setOnClickListener(v -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Intent panelIntent = new Intent(Settings.Panel.ACTION_WIFI);
-                panelIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(panelIntent);
-            } else if (wifiManager != null) {
-                boolean state = !wifiManager.isWifiEnabled();
-                wifiManager.setWifiEnabled(state);
-                wifiBtn.setBackgroundColor(state ? 0xFF007AFF : 0xFF444444);
-            }
+    private void triggerIslandExpansion(String textMessage, int targetIconResource) {
+        islandLeftIcon.setImageResource(targetIconResource);
+        islandLeftIcon.setVisibility(View.VISIBLE);
+        islandCenterText.setText(textMessage);
+        islandCenterText.setVisibility(View.VISIBLE);
+        
+        // Smoothly expand width using our standard physics animator engine framework
+        new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 240f, val -> {
+            islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+            islandBasePill.requestLayout();
         });
 
-        // --- 2. BLUETOOTH UTILITY ---
+        // Split out the secondary micro activity bubble to represent active multi-tasking modes
+        islandHandler.postDelayed(() -> islandSplitBubble.setVisibility(View.VISIBLE), 150);
 
-        if (bluetoothAdapter != null) bluetoothBtn.setBackgroundColor(bluetoothAdapter.isEnabled() ? 0xFF007AFF : 0xFF444444);
+        // Auto-collapse back down safely into an idle state after 3 seconds
+        islandHandler.postDelayed(() -> {
+            islandLeftIcon.setVisibility(View.GONE);
+            islandCenterText.setVisibility(View.GONE);
+            islandSplitBubble.setVisibility(View.GONE);
+            new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(240f, 110f, val -> {
+                islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+                islandBasePill.requestLayout();
+            });
+        }, 3500);
+    }
+
+    private void initClockEngine() {
+final TextView timeTextView = masterView.findViewById(R.id.statusBarTime);
+final SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm", Locale.getDefault());
+clockTimer = new Timer();
+clockTimer.scheduleAtFixedRate(new TimerTask() {
+@Override
+public void run() {
+new Handler(Looper.getMainLooper()).post(() -> timeTextView.setText(timeFormatter.format(new Date())));
+}
+}, 0, 1000);
+}
+private void initVolumeHUDSystem() {
+dismissRunnable = () -> hideVolumeHUD();
+hudSlider.setOnTouchListener((v, event) -> {
+if (!isHudExpanded) {
+isHudExpanded = true;
+hudDismissHandler.removeCallbacks(dismissRunnable);
+new com.replica.iosui.physics.IOSSpringAnimator(hudSlider).animateTo(hudWidth, 48f, val -> {
+hudWidth = val;
+hudSlider.getLayoutParams().width = dpToPx((int) val);
+hudSlider.requestLayout();
+});
+}
+return false;
+});
+volumeReceiver = new BroadcastReceiver() {
+@Override
+public void onReceive(Context context, Intent intent) {
+if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) triggerVolumeHUDUpdate();
+}
+};
+registerReceiver(volumeReceiver, new IntentFilter("android.media.VOLUME_CHANGED_ACTION"));
+}
+private void triggerVolumeHUDUpdate() {
+hudDismissHandler.removeCallbacks(dismissRunnable);
+int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+hudSlider.setProgress((float) currentVol / (float) maxVol);
+if (!isHudVisible) {
+isHudVisible = true;
+hudContainer.setVisibility(View.VISIBLE);
+hudContainer.setTranslationX(-dpToPx(40));
+new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(-dpToPx(40), 0f, val -> hudContainer.setTranslationX(val));
+}
+hudDismissHandler.postDelayed(dismissRunnable, 2000);
+}
+private void hideVolumeHUD() {
+if (isHudVisible) {
+new com.replica.iosui.physics.IOSSpringAnimator(hudContainer).animateTo(hudContainer.getTranslationX(), -dpToPx(60), val -> {
+hudContainer.setTranslationX(val);
+if (val <= -dpToPx(58)) {
+isHudVisible = false;
+isHudExpanded = false;
+hudContainer.setVisibility(View.GONE);
+hudWidth = 14f;
+hudSlider.getLayoutParams().width = dpToPx(14);
+hudSlider.requestLayout();
+}
+});
+}
+}
+private void initDragAndHardwareUtilities() {
+ImageView wifiBtn = masterView.findViewById(R.id.ccWifi);
+ImageView bluetoothBtn = masterView.findViewById(R.id.ccBluetooth);
+ImageView torchBtn = masterView.findViewById(R.id.ccFlashlight);
+com.replica.iosui.views.IOSSliderView brightSlider = masterView.findViewById(R.id.ccBrightness);
+com.replica.iosui.views.IOSSliderView volumeSlider = masterView.findViewById(R.id.ccVolume);
+if (wifiManager != null) wifiBtn.setBackgroundColor(wifiManager.isWifiEnabled() ? 0xFF007AFF : 0xFF444444);
+wifiBtn.setOnClickListener(v -> {
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+Intent intent = new Intent(Settings.Panel.ACTION_WIFI);
+intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(intent);
+} else if (wifiManager != null) {
+boolean state = !wifiManager.isWifiEnabled();
+wifiManager.setWifiEnabled(state);
+wifiBtn.setBackgroundColor(state ? 0xFF007AFF : 0xFF444444);
+}
+});
+if (bluetoothAdapter != null) bluetoothBtn.setBackgroundColor(bluetoothAdapter.isEnabled() ? 0xFF007AFF : 0xFF444444);
 bluetoothBtn.setOnClickListener(v -> {
 if (bluetoothAdapter != null) {
 if (bluetoothAdapter.isEnabled()) {
 bluetoothAdapter.disable();
 bluetoothBtn.setBackgroundColor(0xFF444444);
 } else {
-Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-enableBtIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-startActivity(enableBtIntent);
+Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(intent);
 }
 }
 });
-bluetoothReceiver = new BroadcastReceiver() {
-@Override
-public void onReceive(Context context, Intent intent) {
-int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-if (state == BluetoothAdapter.STATE_ON) bluetoothBtn.setBackgroundColor(0xFF007AFF);
-if (state == BluetoothAdapter.STATE_OFF) bluetoothBtn.setBackgroundColor(0xFF444444);
-}
-};
-registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
-// --- 3. FLASHLIGHT UTILITY ---
 torchBtn.setOnClickListener(v -> {
 if (cameraManager != null && cameraId != null) {
 try {
@@ -275,18 +339,6 @@ torchBtn.setBackgroundColor(isFlashlightOn ? 0xFF007AFF : 0xFF444444);
 } catch (Exception ignored) {}
 }
 });
-// --- 4. SCREEN MIRRORING SHORTCUT ---
-// Instantly hooks to the Android Cast dialog utility pipeline layout
-View mirrorContainer = masterView.findViewById(R.id.ccVolume).getRootView();
-View mirroringTargetLayout = mirrorContainer.findViewWithTag("mirrorTarget");
-if (mirroringTargetLayout != null) {
-mirroringTargetLayout.setOnClickListener(v -> {
-Intent castIntent = new Intent(Settings.ACTION_CAST_SETTINGS);
-castIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-startActivity(castIntent);
-});
-}
-// --- 5. SYSTEM AUDIO & SLIDERS ---
 try {
 brightSlider.setProgress((float) Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS) / 255f);
 } catch (Exception ignored) {}
@@ -297,15 +349,12 @@ Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 
 }
 return false;
 });
-int currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-volumeSlider.setProgress((float) currentVol / (float) maxVol);
+volumeSlider.setProgress((float) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / (float) audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
 volumeSlider.setOnTouchListener((v, event) -> {
 int targetVol = Math.round(volumeSlider.getProgress() * audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0);
 return false;
 });
-// --- 6. DRAG MECHANICS EDGE TRACKER ---
 dragTriggerView.setOnTouchListener((v, event) -> {
 float rawY = event.getRawY();
 switch (event.getAction()) {
@@ -342,7 +391,6 @@ return true;
 return false;
 });
 }
-// --- 7. NOW PLAYING MEDIA HARDWARE SYNCHRONIZATION ---
 private void initMediaPlaybackEngine() {
 final TextView trackTitle = masterView.findViewById(R.id.ccTrackTitle);
 final ImageView playPauseBtn = masterView.findViewById(R.id.ccMediaPlayPause);
@@ -351,34 +399,23 @@ try {
 List controllers = mediaSessionManager.getActiveSessions(null);
 if (!controllers.isEmpty()) {
 activeMediaController = controllers.get(0);
-updateMediaUI(trackTitle, playPauseBtn);
+String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
+trackTitle.setText(name != null ? name : "Unknown Track");
+// Reveal music wave inside island capsule layer
+islandVisualizer.setVisibility(View.VISIBLE);
 }
-} catch (Exception ignored) {
-trackTitle.setText("Not Playing");
-}
+} catch (Exception ignored) {}
 }
 playPauseBtn.setOnClickListener(v -> {
 if (activeMediaController != null) {
 PlaybackState pbState = activeMediaController.getPlaybackState();
 if (pbState != null && pbState.getState() == PlaybackState.STATE_PLAYING) {
 activeMediaController.getTransportControls().pause();
-playPauseBtn.setImageResource(android.graphics.drawable.ic_media_play);
 } else if (activeMediaController != null) {
 activeMediaController.getTransportControls().play();
-playPauseBtn.setImageResource(android.graphics.drawable.ic_media_pause);
 }
 }
 });
-}
-private void updateMediaUI(TextView title, ImageView button) {
-if (activeMediaController != null && activeMediaController.getMetadata() != null) {
-String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
-title.setText(name != null ? name : "Unknown Track");
-}
-if (activeMediaController != null && activeMediaController.getPlaybackState() != null) {
-boolean playing = activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING;
-button.setImageResource(playing ? android.graphics.drawable.ic_media_pause : android.graphics.drawable.ic_media_play);
-}
 }
 private void updateWindowFlags(boolean focusable) {
 if (focusable) {
@@ -395,9 +432,10 @@ return Math.round((float) dp * getResources().getDisplayMetrics().density);
 public void onDestroy() {
 super.onDestroy();
 if (masterView != null) windowManager.removeView(masterView);
+if (islandOverlayView != null) windowManager.removeView(islandOverlayView);
 if (dragTriggerView != null) windowManager.removeView(dragTriggerView);
 if (clockTimer != null) clockTimer.cancel();
 if (volumeReceiver != null) unregisterReceiver(volumeReceiver);
-if (bluetoothReceiver != null) unregisterReceiver(bluetoothReceiver);
+if (batteryReceiver != null) unregisterReceiver(batteryReceiver);
 }
 }
