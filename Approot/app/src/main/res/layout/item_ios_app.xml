@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://android.com"
+    android:layout_width="85dp"
+    android:layout_height="96dp"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="4dp"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Custom Hardware Rendered Shape Canvas Frame for App Icons -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/iconCardFrame"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        +android:appLayout="hardware"
+        android:elevation="0dp"
+        android:backgroundTint="#2C2C2E">
+        
+        <!-- Note: We programmatically load app icons here -->
+        <ImageView
+            android:id="@+id/appIconImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"/>
+            
+    </androidx.cardview.widget.CardView>
+
+    <!-- Clean Typography App Display Title Label -->
+    <TextView
+        android:id="@+id/appLabelText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="App"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="normal"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:shadowColor="#80000000"
+        android:shadowRadius="3.0"/>
+
+</LinearLayout>
