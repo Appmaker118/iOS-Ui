@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://android.com"
-    xmlns:tools="http://android.com">
+<manifest xmlns:android="http://android.com">
 
-    <!-- Active Hardware Interface Core Framework Permissions -->
+    <!-- Active Hardware Interface Framework Permissions -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -10,7 +9,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application
         android:allowBackup="true"
@@ -19,7 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <!-- PRIMARY DESKTOP WORKSPACE LAUNCHER WINDOW ENTRYPOINT -->
+        <!-- PRIMARY DESKTOP WORKSPACE LAUNCHER ACTIVITY ENTRYPOINT -->
         <activity
             android:name="com.replica.iosui.MainActivity"
             android:exported="true"
@@ -34,7 +33,7 @@
             </intent-filter>
         </activity>
 
-        <!-- BACKGROUND OVERLAY ENGINE HOOKED SERVICES -->
+        <!-- BACKGROUND OVERLAY ENGINE SERVICES -->
         <service
             android:name="com.replica.iosui.services.IOSStatusBarService"
             android:enabled="true"
