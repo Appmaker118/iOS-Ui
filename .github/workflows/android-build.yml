@@ -36,7 +36,7 @@ jobs:
           rm -rf app/build/
           rm -rf build/
 
-      # Injects explicit conflict bypass tokens directly into the compiled manifest string
+      # Injects tools:node="replace" on the application tag to aggressively isolate our parameters from background conflicts
       - name: Force Overwrite Live Manifest
         run: |
           mkdir -p app/src/main
@@ -61,7 +61,8 @@ jobs:
                   android:icon="@mipmap/ic_launcher"
                   android:label="iOS 27 UI"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.NoActionBar">
+                  android:theme="@style/Theme.AppCompat.NoActionBar"
+                  tools:node="replace">
 
                   <activity
                       android:name="com.replica.iosui.MainActivity"
