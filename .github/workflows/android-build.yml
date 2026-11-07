@@ -1,7 +1,7 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Strictly manual trigger inside your Actions tab
+  workflow_dispatch: # Manual activation remains fully secure inside your Actions tab
 
 jobs:
   build:
@@ -40,7 +40,7 @@ jobs:
           # Build a concrete standard module drive
           mkdir -p clean_workspace/app/src/main
           
-          # FIX: Copy the *contents* of your main folder explicitly, preventing nested main/main structures
+          # Copy the contents of your main folder explicitly
           cp -r "$SRC_PATH"/. clean_workspace/app/src/main/
           
           # Generate standard, modern root-level settings file
@@ -108,14 +108,12 @@ jobs:
           # Verify and fix the copied manifest file namespaces
           MANIFEST_FILE="clean_workspace/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_FILE" ]; then
-            # Clean up the manifest tag dynamically to inject tools and android mapping namespaces seamlessly
-            sed -i 's/<manifest[^>]*>/<manifest xmlns:android="http:\/\/://android.com\/apk\/res\/android" xmlns:tools="http:\/\/://android.com\/tools">/' "$MANIFEST_FILE"
-            # Ensure the application tag carries a replace instruction to avoid background dependency blocks
-            sed -i 's/<application[^>]*>/<application android:allowBackup="true" android:icon="@mipmap\/ic_launcher" android:label="iOS 27 UI" android:supportsRtl="true" android:theme="@style\/Theme.AppCompat.NoActionBar" tools:node="replace">/' "$MANIFEST_FILE"
+            # FIX: Swapped standard forward slash separators for vertical pipes to support parsing URLs securely
+            sed -i 's|<manifest[^>]*>|<manifest xmlns:android="http://android.com" xmlns:tools="http://android.com">|' "$MANIFEST_FILE"
+            sed -i 's|<application[^>]*>|<application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="iOS 27 UI" android:supportsRtl="true" android:theme="@style/Theme.AppCompat.NoActionBar" tools:node="replace">|' "$MANIFEST_FILE"
             echo "🚀 Manifest folder mapping validated and auto-corrected!"
           else
             echo "❌ ERROR: AndroidManifest.xml missing inside clean_workspace/app/src/main/"
-            ls -R clean_workspace
             exit 1
           fi
 
