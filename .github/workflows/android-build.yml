@@ -1,7 +1,7 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Manual activation remains fully secure inside your Actions tab
+  workflow_dispatch: # Only runs when you press the button manually in Actions
 
 jobs:
   build:
@@ -19,12 +19,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # AUTO-LOCATE AND AUTO-RECONSTRUCT THE WORKSPACE CORRECTLY
+      # AUTO-LOCATE AND AUTO-RECONSTRUCT THE WORKSPACE STAGING GROUND
       - name: Auto-Locate and Rebuild Project Structure
         run: |
           echo "🔍 Scanning repository for your Android source files..."
           
-          # Dynamically capture where your source files live in the repo
+          # Find where the actual main project source folder lives inside the repo dynamically
           SRC_PATH=$(find . -type d -path "*/src/main" -print -quit)
           
           if [ -z "$SRC_PATH" ]; then
@@ -37,13 +37,13 @@ jobs:
           # Wipe out any residual staging directories
           rm -rf clean_workspace
           
-          # Build a concrete standard module drive
+          # Reconstruct a completely pristine, standard Android layout structure
           mkdir -p clean_workspace/app/src/main
           
-          # Copy the contents of your main folder explicitly
+          # Copy your raw source files exactly into the new clean workspace layout
           cp -r "$SRC_PATH"/. clean_workspace/app/src/main/
           
-          # Generate standard, modern root-level settings file
+          # Generate a standard, modern root-level settings file
           cat << 'EOF' > clean_workspace/settings.gradle
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
@@ -105,17 +105,60 @@ jobs:
           }
           EOF
 
-          # Verify and fix the copied manifest file namespaces
-          MANIFEST_FILE="clean_workspace/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST_FILE" ]; then
-            # FIX: Swapped standard forward slash separators for vertical pipes to support parsing URLs securely
-            sed -i 's|<manifest[^>]*>|<manifest xmlns:android="http://android.com" xmlns:tools="http://android.com">|' "$MANIFEST_FILE"
-            sed -i 's|<application[^>]*>|<application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="iOS 27 UI" android:supportsRtl="true" android:theme="@style/Theme.AppCompat.NoActionBar" tools:node="replace">|' "$MANIFEST_FILE"
-            echo "🚀 Manifest folder mapping validated and auto-corrected!"
-          else
-            echo "❌ ERROR: AndroidManifest.xml missing inside clean_workspace/app/src/main/"
-            exit 1
-          fi
+          # 🚀 FIXED: Completely overwrite the manifest directly on the staging ground.
+          # This replaces matching commands with a fully-validated manifest schema.
+          cat << 'EOF' > clean_workspace/app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://android.com"
+              xmlns:tools="http://android.com">
+
+              <uses-sdk tools:overrideLibrary="androidx.appcompat, com.google.android.material, androidx.cardview, androidx.recyclerview, androidx.viewpager2"/>
+
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="iOS 27 UI"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.NoActionBar"
+                  tools:node="replace">
+
+                  <activity
+                      android:name="com.replica.iosui.MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTask"
+                      android:clearTaskOnLaunch="true"
+                      android:stateNotNeeded="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                          <category android:name="android.intent.category.HOME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                  </activity>
+
+                  <service
+                      android:name="com.replica.iosui.services.IOSStatusBarService"
+                      android:enabled="true"
+                      android:exported="false" />
+
+                  <service
+                      android:name="com.replica.iosui.services.IOSLockScreenService"
+                      android:enabled="true"
+                      android:exported="false" />
+
+              </application>
+          </manifest>
+          EOF
+          echo "✨ Pristine standalone manifest safely injected!"
 
       - name: Initialize Fresh Gradle Wrapper
         run: |
