@@ -31,6 +31,7 @@ import android.widget.Chronometer;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.replica.iosui.R;
 import com.replica.iosui.physics.IOSSpringAnimator;
@@ -50,26 +51,32 @@ public class IOSStatusBarService extends Service {
     private WindowManager windowManager;
     private View masterView;
     
-    // Core Layout Nodes
+    // Core Base Layout Pointers
     private View ccRootView;
     private View statusBarView;
     private View hudContainer;
     private IOSSliderView hudSlider;
     private View dragTriggerView;
 
-    // Dynamic Island Layout Nodes
+    // Upgraded Dynamic Island Layout Nodes
     private View islandOverlayView;
     private View islandBasePill;
     private View islandSplitBubble;
     private ImageView islandLeftIcon;
-    private LinearLayout islandCenterTextGroup;
-    private TextView islandMainTitle;
-    private TextView islandSubTitle;
+    private FrameLayout islandRightActionArea;
     private LinearLayout islandVisualizer;
     private Chronometer islandChronometer;
     private ImageView islandSplitIcon;
     
-    // Waveforms View Pointers
+    // Interactive Notification Layout References
+    private LinearLayout islandExpandedContainer;
+    private ImageView islandExpandedAppIcon;
+    private TextView islandExpandedTitle;
+    private TextView islandExpandedSubtitle;
+    private LinearLayout islandActionButtonsGroup;
+    private TextView btnAnswer;
+    private TextView btnDecline;
+    
     private View wave1, wave2, wave3, wave4;
 
     // Orchestration System Connections
@@ -85,7 +92,7 @@ public class IOSStatusBarService extends Service {
     private BroadcastReceiver bluetoothReceiver;
     private BroadcastReceiver batteryReceiver;
     
-    // Operational State Framework Flags
+    // State Tracking Properties
     private String cameraId;
     private boolean isFlashlightOn = false;
     private boolean isCCVisible = false;
@@ -96,7 +103,8 @@ public class IOSStatusBarService extends Service {
     private float initialTouchY = 0f;
     private float hudWidth = 14f;
     private int displayHeight = 0;
-    private String currentActiveAppPackage = "com.android.settings"; // Direct context tracker package
+    private int displayWidth = 0;
+    private String currentActiveAppPackage = "com.whatsapp"; // Pinned package pointer target
     
     private Handler hudDismissHandler;
     private Runnable dismissRunnable;
@@ -120,11 +128,11 @@ public class IOSStatusBarService extends Service {
         
         windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         displayHeight = getResources().getDisplayMetrics().heightPixels;
-        int displayWidth = getResources().getDisplayMetrics().widthPixels;
+        displayWidth = getResources().getDisplayMetrics().widthPixels;
         hudDismissHandler = new Handler(Looper.getMainLooper());
         islandHandler = new Handler(Looper.getMainLooper());
 
-        // 1. INITIALISE CORE HARDWARE CONNECTORS
+        // 1. HARDWARE SERVICES
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
@@ -134,7 +142,7 @@ public class IOSStatusBarService extends Service {
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             if (cameraManager != null && cameraManager.getCameraIdList().length > 0) {
-                cameraId = cameraManager.getCameraIdList()[0];
+                cameraId = cameraManager.getCameraIdList();
             }
         } catch (Exception ignored) {}
 
@@ -159,17 +167,24 @@ public class IOSStatusBarService extends Service {
         baseParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(masterView, baseParams);
 
-        // 3. INFLATE DYNAMIC ISLAND CONTROL MODULES
+        // 3. INFLATE UPGRADED DYNAMIC ISLAND CONTROLLERS
         islandOverlayView = LayoutInflater.from(this).inflate(R.layout.overlay_dynamic_island, null);
         islandBasePill = islandOverlayView.findViewById(R.id.islandBasePill);
         islandSplitBubble = islandOverlayView.findViewById(R.id.islandSplitBubble);
         islandLeftIcon = islandOverlayView.findViewById(R.id.islandLeftIcon);
-        islandCenterTextGroup = islandOverlayView.findViewById(R.id.islandCenterTextGroup);
-        islandMainTitle = islandOverlayView.findViewById(R.id.islandMainTitle);
-        islandSubTitle = islandOverlayView.findViewById(R.id.islandSubTitle);
+        islandRightActionArea = islandOverlayView.findViewById(R.id.islandRightActionArea);
         islandVisualizer = islandOverlayView.findViewById(R.id.islandVisualizerGroup);
         islandChronometer = islandOverlayView.findViewById(R.id.islandCallChronometer);
         islandSplitIcon = islandOverlayView.findViewById(R.id.islandSplitIcon);
+        
+        // Expanded Mode Visual Nodes Mapping
+        islandExpandedContainer = islandOverlayView.findViewById(R.id.islandExpandedContainer);
+        islandExpandedAppIcon = islandOverlayView.findViewById(R.id.islandExpandedAppIcon);
+        islandExpandedTitle = islandOverlayView.findViewById(R.id.islandExpandedTitle);
+        islandExpandedSubtitle = islandOverlayView.findViewById(R.id.islandExpandedSubtitle);
+        islandActionButtonsGroup = islandOverlayView.findViewById(R.id.islandActionButtonsGroup);
+        btnAnswer = islandOverlayView.findViewById(R.id.btnIslandAnswer);
+        btnDecline = islandOverlayView.findViewById(R.id.btnIslandDecline);
         
         wave1 = islandOverlayView.findViewById(R.id.waveBar1);
         wave2 = islandOverlayView.findViewById(R.id.waveBar2);
@@ -184,11 +199,11 @@ public class IOSStatusBarService extends Service {
                 PixelFormat.TRANSLUCENT
         );
         islandParams.gravity = Gravity.TOP | Gravity.START;
-        islandParams.x = displayWidth / 2 - dpToPx(55); // Centered default calibration allocation
+        islandParams.x = displayWidth / 2 - dpToPx(55); 
         islandParams.y = dpToPx(6);
         windowManager.addView(islandOverlayView, islandParams);
 
-        // 4. INVISIBLE GESTURE RECEIVER TRACKER BOX
+        // 4. INVISIBLE DRAG TRIGGER HITBOX
         dragParams = new WindowManager.LayoutParams(
                 displayWidth / 3,
                 dpToPx(44),
@@ -201,7 +216,7 @@ public class IOSStatusBarService extends Service {
         dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         windowManager.addView(dragTriggerView, dragParams);
 
-        // 5. ENGAGE RUNNING LOOPS
+        // 5. RUN LOOPS
         initClockEngine();
         initVolumeHUDSystem();
         initDragAndHardwareUtilities();
@@ -218,92 +233,126 @@ public class IOSStatusBarService extends Service {
     }
 
     private void initIslandSystemCore() {
-        // --- BATTERY CHARGING INTENT DISCOVERY ---
+        // --- CHARGING FLASH POP TRIGGER ---
         batteryReceiver = new BroadcastReceiver() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-                if (Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
-                    currentActiveAppPackage = "com.android.settings"; // Point context tracker to settings app
-                    executeIslandTransformation("Charging", "98% Battery Level Locked", android.graphics.drawable.ic_lock_idle_charging, false, false);
-                }
-            }
-        };
-        registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
-
-        // --- GESTURE ROUTER (CLICK TO RE-COLLAPSE / LONG PRESS TO LAUNCH TARGET APP) ---
-        islandBasePill.setOnClickListener(v -> {
-            if (isIslandExpanded) {
-                collapseIslandToCompact();
-            } else {
-         // Simulate map live guidance overview on quick touch tap
-currentActiveAppPackage = "com.google.android.apps.maps";
-executeIslandTransformation("Maps Active Navigation", "Turn Right in 250m", android.graphics.drawable.ic_menu_compass, false, true);
+    public void onReceive(Context context, Intent intent) {
+if (Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
+currentActiveAppPackage = "com.android.settings";
+executeIncomingNotificationAlert("System Framework", "Charging • 98% Filled", android.graphics.drawable.ic_lock_idle_charging, false);
+}
+}
+};
+registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+// --- GESTURE ROUTING MAPS ---
+islandBasePill.setOnClickListener(v -> {
+if (isIslandExpanded) {
+collapseIslandToCompact();
+} else {
+// Default expand if tap occurs during active alert notifications
+executeIncomingNotificationAlert("WhatsApp", "Message from Alex: Let's meet at 5!", android.graphics.drawable.ic_menu_send, false);
 }
 });
 islandBasePill.setOnLongClickListener(v -> {
-// Launch the precise application currently running behind the layout scene activity
 try {
-Intent targetLaunchIntent = getPackageManager().getLaunchIntentForPackage(currentActiveAppPackage);
-if (targetLaunchIntent != null) {
-targetLaunchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-startActivity(targetLaunchIntent);
+Intent targetIntent = getPackageManager().getLaunchIntentForPackage(currentActiveAppPackage);
+if (targetIntent != null) {
+targetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(targetIntent);
 collapseIslandToCompact();
 }
 } catch (Exception ignored) {}
 return true;
 });
-// Setup call layout ticker profiling demonstration after 12 seconds automatically for testing validation
-islandHandler.postDelayed(() -> {
-currentActiveAppPackage = "com.android.server.telecom"; // Track native dialer operations
-executeIslandTransformation("Incoming Call Ticker", "Mom", android.graphics.drawable.ic_menu_call, true, false);
-}, 12000);
-}
-private void executeIslandTransformation(String mainText, String subText, int iconRes, boolean isPhoneCall, boolean isSplitActive) {
-isIslandExpanded = true;
-islandLeftIcon.setImageResource(iconRes);
-islandLeftIcon.setVisibility(View.VISIBLE);
-islandMainTitle.setText(mainText);
-islandSubTitle.setText(subText);
-islandSubTitle.setVisibility(View.VISIBLE);
-islandCenterTextGroup.setVisibility(View.VISIBLE);
-if (isPhoneCall) {
+// --- BUTTON ACTION HANDLERS ---
+btnAnswer.setOnClickListener(v -> {
+Toast.makeText(this, "Call Answered Successfully", Toast.LENGTH_SHORT).show();
+// Transition into ongoing call layout containing green clock counter ticker
+islandActionButtonsGroup.setVisibility(View.GONE);
+islandExpandedContainer.setVisibility(View.GONE);
+islandRightActionArea.setVisibility(View.VISIBLE);
 islandChronometer.setBase(SystemClock.elapsedRealtime());
 islandChronometer.start();
 islandChronometer.setVisibility(View.VISIBLE);
-islandVisualizer.setVisibility(View.GONE);
-}
-// Execute physics dimensional alterations fluidly via spring core variables
-new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 255f, val -> {
+// Re-contract island capsule dynamically to modern ongoing micro configuration state
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(260f, 130f, val -> {
+islandParams.x = displayWidth / 2 - dpToPx((int) val / 2);
 islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
-islandBasePill.getLayoutParams().height = dpToPx(46);
-islandBasePill.requestLayout();
+islandBasePill.getLayoutParams().height = dpToPx(30);
+windowManager.updateViewLayout(islandOverlayView, islandParams);
 });
-if (isSplitActive) {
+isIslandExpanded = false;
+});
+btnDecline.setOnClickListener(v -> {
+Toast.makeText(this, "Call Terminated", Toast.LENGTH_SHORT).show();
+collapseIslandToCompact();
+});
+// SIMULATE INCOMING WHATSAPP CALL TEST POP AFTER 8 SECONDS
 islandHandler.postDelayed(() -> {
-islandSplitIcon.setImageResource(android.graphics.drawable.ic_dialog_alert);
-islandSplitBubble.setVisibility(View.VISIBLE);
-}, 150);
+currentActiveAppPackage = "com.whatsapp";
+executeIncomingNotificationAlert("WhatsApp Voice Call", "Sarah Jenkins", android.graphics.drawable.ic_menu_call, true);
+}, 8000);
+}
+public void executeIncomingNotificationAlert(String title, String body, int iconRes, boolean isInteractiveCall) {
+if (isIslandExpanded) return;
+isIslandExpanded = true;
+// Clear compact view elements out off-canvas gracefully
+islandLeftIcon.setVisibility(View.GONE);
+islandRightActionArea.setVisibility(View.GONE);
+// Inject configuration details into layout view blocks
+islandExpandedAppIcon.setImageResource(iconRes);
+islandExpandedTitle.setText(title);
+islandExpandedSubtitle.setText(body);
+islandExpandedContainer.setVisibility(View.VISIBLE);
+// Turn focusable mode flags on so the layout can intercept screen touch actions cleanly
+islandParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+windowManager.updateViewLayout(islandOverlayView, islandParams);
+if (isInteractiveCall) {
+islandActionButtonsGroup.setVisibility(View.VISIBLE);
+// Dynamic expansion layout bounds adjustments mapping spring physics animations
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 260f, val -> {
+islandParams.x = displayWidth / 2 - dpToPx((int) val / 2);
+islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+islandBasePill.getLayoutParams().height = dpToPx(85); // Grow tall to house buttons layout metrics cleanly
+windowManager.updateViewLayout(islandOverlayView, islandParams);
+});
+} else {
+islandActionButtonsGroup.setVisibility(View.GONE);
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 260f, val -> {
+islandParams.x = displayWidth / 2 - dpToPx((int) val / 2);
+islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+islandBasePill.getLayoutParams().height = dpToPx(56);
+windowManager.updateViewLayout(islandOverlayView, islandParams);
+});
+// Automatically contract pure message alerts after 4.5 seconds
+islandHandler.postDelayed(() -> {
+if (isIslandExpanded && !isInteractiveCall) collapseIslandToCompact();
+}, 4500);
 }
 }
 private void collapseIslandToCompact() {
+if (!isIslandExpanded) return;
 isIslandExpanded = false;
 islandChronometer.stop();
+islandExpandedContainer.setVisibility(View.GONE);
+islandActionButtonsGroup.setVisibility(View.GONE);
 islandLeftIcon.setVisibility(View.GONE);
-islandCenterTextGroup.setVisibility(View.GONE);
-islandSubTitle.setVisibility(View.GONE);
+islandRightActionArea.setVisibility(View.VISIBLE);
 islandChronometer.setVisibility(View.GONE);
 islandSplitBubble.setVisibility(View.GONE);
 if (activeMediaController != null && activeMediaController.getPlaybackState() != null
 && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
 islandVisualizer.setVisibility(View.VISIBLE);
 }
-new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(255f, 110f, val -> {
+// Return parameters back safely to baseline micro states
+islandParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(260f, 110f, val -> {
+islandParams.x = displayWidth / 2 - dpToPx((int) val / 2);
 islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
 islandBasePill.getLayoutParams().height = dpToPx(30);
-islandBasePill.requestLayout();
+windowManager.updateViewLayout(islandOverlayView, islandParams);
 });
 }
-// --- CONTINUOUS WAVEFORM AUDIO VISUALIZER SUB-LOOP ---
 private void startVisualizerAnimationLoop() {
 if (visualizerRunnable != null) return;
 visualizerRunnable = new Runnable() {
@@ -489,7 +538,7 @@ activeMediaController = controllers.get(0);
 String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
 trackTitle.setText(name != null ? name : "Unknown Track");
 if (activeMediaController.getPlaybackState() != null && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
-currentActiveAppPackage = activeMediaController.getPackageName(); // Lock active app handle
+currentActiveAppPackage = activeMediaController.getPackageName();
 islandVisualizer.setVisibility(View.VISIBLE);
 startVisualizerAnimationLoop();
 }
