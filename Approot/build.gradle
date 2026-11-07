@@ -24,6 +24,16 @@ android {
         versionName "1.0.0"
     }
 
+    // DIRECT DIRECTORY ROUTING OVERRIDE MATRIX
+    sourceSets {
+        main {
+            manifest.srcFile 'app/src/main/AndroidManifest.xml'
+            java.srcDirs = ['app/src/main/java']
+            res.srcDirs = ['app/src/main/res']
+            assets.srcDirs = ['app/src/main/assets']
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
