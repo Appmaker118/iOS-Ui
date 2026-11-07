@@ -1,0 +1,40 @@
+name: Android APK Build Engine
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Allows you to manually trigger the build from the GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout the source code from your repository
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    # 2. Set up the specific Java development kit required for compilation
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    # 3. Grant absolute execution privileges to the Gradle wrapper
+    - name: Grant Execute Permission for Gradle Wrapper
+      run: chmod +x gradlew
+
+    # 4. Compile the application code into a Debug APK
+    - name: Build Debug APK Layout
+      run: ./gradlew assembleDebug
+
+    # 5. Extract and upload the finished APK so you can download it directly
+    - name: Upload Output APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: iOS-27-Replica-Debug-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
