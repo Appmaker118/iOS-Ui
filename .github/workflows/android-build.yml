@@ -1,7 +1,7 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Runs strictly only when you press the button in the Actions tab
+  workflow_dispatch: # Locks down the build to only run manually when pressed in actions
 
 jobs:
   build:
@@ -28,7 +28,6 @@ jobs:
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
 
-      # This completely clears Gradle's memory and disk caches to wipe out the sticky namespace error
       - name: Deep Clean Cache Corruption
         run: |
           ./gradlew clean --no-daemon
@@ -37,13 +36,16 @@ jobs:
           rm -rf app/build/
           rm -rf build/
 
-      # Force-injects an airtight, pristine AndroidManifest structure right before compilation to ensure no truncation occurs
+      # Injects explicit conflict bypass tokens directly into the compiled manifest string
       - name: Force Overwrite Live Manifest
         run: |
           mkdir -p app/src/main
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://android.com">
+          <manifest xmlns:android="http://android.com"
+              xmlns:tools="http://android.com">
+
+              <uses-sdk tools:overrideLibrary="androidx.appcompat, com.google.android.material, androidx.cardview, androidx.recyclerview, androidx.viewpager2"/>
 
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
               <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
@@ -110,7 +112,6 @@ jobs:
           path: Approot/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      # Compiles cleanly without a daemon process using absolute file parameters
       - name: Build debug APK (no signing key configured)
         if: env.HAS_KEY != 'true'
         run: ./gradlew assembleDebug --no-daemon --stacktrace
