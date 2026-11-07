@@ -25,22 +25,37 @@
         android:clipChildren="false"
         android:clipToPadding="false"/>
 
-    <!-- 3. CONFIGURATION CALIBRATION SLIDER OVERLAY PANEL -->
+    <!-- 3. CONFIGURATION CALIBRATION SLIDER & SWITCH OVERLAY PANEL -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_marginTop="60dp"
-        android:background="#99000000"
+        android:background="#E61C1C1E"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:padding="16dp"
         android:elevation="10dp">
         
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island X Offset" android:textColor="#FFF"/>
-        <SeekBar android:id="@+id/sliderX" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000"/>
+        <!-- Live Position Calibrator Sliders -->
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island X Offset" android:textColor="#FFF" android:textStyle="bold"/>
+        <SeekBar android:id="@+id/sliderX" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:layout_marginBottom="8dp"/>
         
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island Y Offset" android:textColor="#FFF" android:layout_marginTop="4dp"/>
-        <SeekBar android:id="@+id/sliderY" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="300"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Island Y Offset" android:textColor="#FFF" android:textStyle="bold"/>
+        <SeekBar android:id="@+id/sliderY" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="300" android:layout_marginBottom="16dp"/>
+
+        <!-- THE SYSTEM DEFAULT LAUNCHER TOGGLE SWITCH BUTTON -->
+        <Button
+            android:id="@+id/btnToggleLauncher"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Switch Default Home App"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:backgroundTint="#007AFF"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:cornerRadius="12dp"/>
+            
     </LinearLayout>
 
     <!-- 4. DOT INDICATORS -->
@@ -56,7 +71,7 @@
         app:tabIndicatorHeight="0dp"
         app:tabRippleColor="@android:color/transparent"/>
 
-    <!-- 5. FROSTED DOCK -->
+    <!-- 5. FLOATING FROSTED DOCK -->
     <LinearLayout
         android:id="@+id/iosDockShelf"
         android:layout_width="match_parent"
