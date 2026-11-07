@@ -21,13 +21,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 3. Compile the application code directly using the runner's engine from your subfolder
+    # 3. Clean up broken temporary placeholder files from the resource folders
+    - name: Clean Invalid Resource Placeholders
+      run: |
+        cd "Approot"
+        rm -f app/src/main/res/values/REMOVE
+
+    # 4. Compile the application code directly using the runner's engine from your subfolder
     - name: Build Debug APK Layout
       run: |
         cd "Approot"
         gradle assembleDebug
 
-    # 4. Extract and upload the finished APK artifact out of the build subdirectories
+    # 5. Extract and upload the finished APK artifact out of the build subdirectories
     - name: Upload Output APK Artifact
       uses: actions/upload-artifact@v4
       with:
