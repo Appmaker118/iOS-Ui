@@ -1,14 +1,14 @@
 name: Android APK Build Engine
 
 on:
-  workflow_dispatch: # Manual activation remains fully secure to protect your inbox
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout the source code from your repository explicitly
+    # 1. Checkout the source code repository
     - name: Checkout Code Repository
       uses: actions/checkout@v4
       with:
@@ -21,21 +21,27 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 3. GENERATE FRESH WRAPPER SCRIPTS LIVE ON THE ENGINE TO PREVENT 'NO SUCH FILE' ERRORS
+    # 3. Initialize Gradle structures inside the subfolder matching your project layout
     - name: Generate Fresh Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.2.2
+      run: |
+        cd "Approot"
+        gradle wrapper --gradle-version 8.2.2
 
     # 4. Grant absolute execution privileges to the newly generated wrapper
     - name: Grant Execute Permission for Gradle Wrapper
-      run: chmod +x gradlew
+      run: |
+        cd "Approot"
+        chmod +x gradlew
 
-    # 5. Compile the application code into a Debug APK
+    # 5. Compile the application code into a Debug APK from the subfolder
     - name: Build Debug APK Layout
-      run: ./gradlew assembleDebug
+      run: |
+        cd "Approot"
+        ./gradlew assembleDebug
 
-    # 6. Extract and upload the finished APK artifact
+    # 6. Extract and upload the finished APK artifact out of the build subdirectories
     - name: Upload Output APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: iOS-27-Replica-Debug-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: "**/build/outputs/apk/debug/app-debug.apk"
