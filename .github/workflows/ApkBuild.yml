@@ -21,19 +21,17 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 3. Clean up broken temporary placeholder files from the resource folders
-    - name: Clean Invalid Resource Placeholders
-      run: |
-        cd "Approot"
-        rm -f app/src/main/res/values/REMOVE
+    # 3. Run the complete workspace reset script
+    - name: Reset Workspace Configuration
+      run: python setup_workspace.py
 
-    # 4. Compile the application code directly using the runner's engine from your subfolder
+    # 4. Compile the codebase directly using the runner's engine from your subfolder
     - name: Build Debug APK Layout
       run: |
         cd "Approot"
         gradle assembleDebug
 
-    # 5. Extract and upload the finished APK artifact out of the build subdirectories
+    # 5. Extract and upload the finished APK artifact
     - name: Upload Output APK Artifact
       uses: actions/upload-artifact@v4
       with:
