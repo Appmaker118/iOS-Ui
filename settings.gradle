@@ -12,5 +12,11 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
 rootProject.name = "iOS-Ui-Replica"
+
+// Include the subproject module structure
 include ':app'
+
+// Explicitly map the ':app' module pointer directly onto the root folder paths
+project(':app').projectDir = file('.')
