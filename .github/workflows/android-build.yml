@@ -1,14 +1,14 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Strictly runs only when you press the button manually in Actions
+  workflow_dispatch: # Runs strictly only when you press the button in the Actions tab
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     defaults:
       run:
-        working-directory: Approot # Directs all commands to execute inside your project folder
+        working-directory: Approot
     env:
       HAS_KEY: ${{ secrets.IOSUI_KEYSTORE_B64 != '' }}
     steps:
@@ -28,6 +28,67 @@ jobs:
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
 
+      # This completely clears Gradle's memory and disk caches to wipe out the sticky namespace error
+      - name: Deep Clean Cache Corruption
+        run: |
+          ./gradlew clean --no-daemon
+          rm -rf ~/.gradle/caches/
+          rm -rf .gradle/
+          rm -rf app/build/
+          rm -rf build/
+
+      # Force-injects an airtight, pristine AndroidManifest structure right before compilation to ensure no truncation occurs
+      - name: Force Overwrite Live Manifest
+        run: |
+          mkdir -p app/src/main
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://android.com">
+
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="iOS 27 UI"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.NoActionBar">
+
+                  <activity
+                      android:name="com.replica.iosui.MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTask"
+                      android:clearTaskOnLaunch="true"
+                      android:stateNotNeeded="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                          <category android:name="android.intent.category.HOME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                  </activity>
+
+                  <service
+                      android:name="com.replica.iosui.services.IOSStatusBarService"
+                      android:enabled="true"
+                      android:exported="false" />
+
+                  <service
+                      android:name="com.replica.iosui.services.IOSLockScreenService"
+                      android:enabled="true"
+                      android:exported="false" />
+
+              </application>
+          </manifest>
+          EOF
+
       - name: Build signed release APK
         if: env.HAS_KEY == 'true'
         env:
@@ -38,7 +99,7 @@ jobs:
         run: |
           echo "$IOSUI_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/iosui-release.jks"
           export IOSUI_KEYSTORE_PATH="$RUNNER_TEMP/iosui-release.jks"
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
           rm -f "$RUNNER_TEMP/iosui-release.jks"
 
       - name: Upload release APK artifact
@@ -49,14 +110,15 @@ jobs:
           path: Approot/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+      # Compiles cleanly without a daemon process using absolute file parameters
       - name: Build debug APK (no signing key configured)
         if: env.HAS_KEY != 'true'
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK artifact
         if: env.HAS_KEY != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ios-ui-debug-apk
-          path: Approot/app/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
