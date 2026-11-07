@@ -1,8 +1,7 @@
 name: Android APK Build Engine
 
-# We have removed 'push' and 'pull_request' loops to protect your inbox
 on:
-  workflow_dispatch: # Allows you to manually trigger the build from the GitHub Actions tab whenever you want
+  workflow_dispatch: # Manual activation remains fully secure to protect your inbox
 
 jobs:
   build:
@@ -22,15 +21,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 3. Grant absolute execution privileges to the Gradle wrapper
+    # 3. GENERATE FRESH WRAPPER SCRIPTS LIVE ON THE ENGINE TO PREVENT 'NO SUCH FILE' ERRORS
+    - name: Generate Fresh Gradle Wrapper
+      run: gradle wrapper --gradle-version 8.2.2
+
+    # 4. Grant absolute execution privileges to the newly generated wrapper
     - name: Grant Execute Permission for Gradle Wrapper
       run: chmod +x gradlew
 
-    # 4. Compile the application code into a Debug APK
+    # 5. Compile the application code into a Debug APK
     - name: Build Debug APK Layout
       run: ./gradlew assembleDebug
 
-    # 5. Extract and upload the finished APK artifact
+    # 6. Extract and upload the finished APK artifact
     - name: Upload Output APK Artifact
       uses: actions/upload-artifact@v4
       with:
