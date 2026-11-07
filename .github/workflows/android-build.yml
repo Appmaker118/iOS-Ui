@@ -42,17 +42,34 @@ jobs:
           echo "package com.replica.iosui.services; import android.app.Service; import android.content.Intent; import android.os.IBinder; public class IOSStatusBarService extends Service { @Override public IBinder onBind(Intent intent) { return null; } }" > clean_workspace/app/src/main/java/com/replica/iosui/services/IOSStatusBarService.java
           echo "package com.replica.iosui.services; import android.app.Service; import android.content.Intent; import android.os.IBinder; public class IOSLockScreenService extends Service { @Override public IBinder onBind(Intent intent) { return null; } }" > clean_workspace/app/src/main/java/com/replica/iosui/services/IOSLockScreenService.java
 
-          # 4. Generate settings file
-          echo "rootProject.name = 'iOS-Ui-Replica'" > clean_workspace/settings.gradle
-          echo "include ':app'" >> clean_workspace/settings.gradle
-
-          # 5. Generate root build file
-          cat << 'EOF' > clean_workspace/build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.4.0' }
+          # 4. Generate settings file with explicit Google repository plugin tracking rules
+          cat << 'EOF' > clean_workspace/settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
-          plugins { id 'com.android.application' version '8.4.0' apply false }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = 'iOS-Ui-Replica'
+          include ':app'
+          EOF
+
+          # 5. Generate root build file with standard plugin block declarations
+          cat << 'EOF' > clean_workspace/build.gradle
+          plugins {
+              id 'com.android.application' version '8.4.0' apply false
+          }
+          tasks.register('clean', Delete) {
+              delete rootProject.buildDir
+          }
           EOF
 
           # 6. Generate app build file
@@ -104,6 +121,7 @@ jobs:
         run: |
           cd clean_workspace
           gradle wrapper --gradle-version 8.7
+          sed -i 's/\r$//' gradlew
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
