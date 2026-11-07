@@ -1,7 +1,7 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Only runs when you press the button manually in Actions
+  workflow_dispatch: # Strictly manual trigger inside your Actions tab
 
 jobs:
   build:
@@ -19,32 +19,31 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # AUTO-LOCATE AND AUTO-RECONSTRUCT THE WORKSPACE
+      # AUTO-LOCATE AND AUTO-RECONSTRUCT THE WORKSPACE CORRECTLY
       - name: Auto-Locate and Rebuild Project Structure
         run: |
           echo "🔍 Scanning repository for your Android source files..."
           
-          # Find where the actual main project source folder lives inside the repo dynamically
+          # Dynamically capture where your source files live in the repo
           SRC_PATH=$(find . -type d -path "*/src/main" -print -quit)
           
           if [ -z "$SRC_PATH" ]; then
             echo "❌ CRITICAL ERROR: Could not find a 'src/main' folder anywhere in this repository."
-            echo "Please make sure your java code and layouts are inside a standard src/main folder."
             exit 1
           fi
           
           echo "🎯 Found your project source folder at: $SRC_PATH"
           
-          # Wiping out any old, broken gradle or caching setups from the virtual workspace
+          # Wipe out any residual staging directories
           rm -rf clean_workspace
           
-          # Reconstruct a completely pristine, 100% standard Android layout inside a fresh folder
-          mkdir -p clean_workspace/app
+          # Build a concrete standard module drive
+          mkdir -p clean_workspace/app/src/main
           
-          # Copy your raw source files exactly into the new clean workspace layout
-          cp -r "$SRC_PATH" clean_workspace/app/src/
+          # FIX: Copy the *contents* of your main folder explicitly, preventing nested main/main structures
+          cp -r "$SRC_PATH"/. clean_workspace/app/src/main/
           
-          # Generate a standard, modern root-level settings file
+          # Generate standard, modern root-level settings file
           cat << 'EOF' > clean_workspace/settings.gradle
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
@@ -106,16 +105,17 @@ jobs:
           }
           EOF
 
-          # Verify that the generated manifest file carries the explicit required xml namespaces
+          # Verify and fix the copied manifest file namespaces
           MANIFEST_FILE="clean_workspace/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_FILE" ]; then
             # Clean up the manifest tag dynamically to inject tools and android mapping namespaces seamlessly
             sed -i 's/<manifest[^>]*>/<manifest xmlns:android="http:\/\/://android.com\/apk\/res\/android" xmlns:tools="http:\/\/://android.com\/tools">/' "$MANIFEST_FILE"
             # Ensure the application tag carries a replace instruction to avoid background dependency blocks
             sed -i 's/<application[^>]*>/<application android:allowBackup="true" android:icon="@mipmap\/ic_launcher" android:label="iOS 27 UI" android:supportsRtl="true" android:theme="@style\/Theme.AppCompat.NoActionBar" tools:node="replace">/' "$MANIFEST_FILE"
-            echo "🚀 Manifest file namespaces auto-corrected successfully!"
+            echo "🚀 Manifest folder mapping validated and auto-corrected!"
           else
-            echo "❌ ERROR: AndroidManifest.xml missing inside the copied src/main folder."
+            echo "❌ ERROR: AndroidManifest.xml missing inside clean_workspace/app/src/main/"
+            ls -R clean_workspace
             exit 1
           fi
 
