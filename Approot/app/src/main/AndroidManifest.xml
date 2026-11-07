@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://android.com"
-    xmlns:tools="http://android.com"
-    package="com.replica.iosui">
+    xmlns:tools="http://android.com">
 
     <!-- Core Hardware Utility Access Permissions -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
