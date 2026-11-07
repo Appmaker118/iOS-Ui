@@ -15,6 +15,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.ImageView;
@@ -79,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
         startService(statusIntent);
         startService(new Intent(this, IOSLockScreenService.class));
 
-        // 2. BIND SERVICE TO GAIN REAL-TIME OVERLAY COORDINATEPrivileges
+        // 2. BIND SERVICE TO GAIN REAL-TIME OVERLAY COORDINATE CONTROL
         bindService(statusIntent, serviceConnection, Context.BIND_AUTO_CREATE);
 
         // 3. FETCH INSTALLED DEVICE PACKAGES
@@ -93,33 +94,47 @@ public class MainActivity extends AppCompatActivity {
 
         // 5. INITIALISE PERSISTENT UTILITIES DECK SHORTCUTS
         setupDockShortcuts();
+
+        // 6. INITIALISE DEFAULT APPS SELECTOR SWITCH UTILITY BUTTON
+        // Make sure to add <Button android:id="@+id/btnToggleLauncher" ... /> inside your res/layout/activity_launcher.xml calibration box container
+        View toggleBtn = findViewById(R.id.btnToggleLauncher);
+        if (toggleBtn != null) {
+            toggleBtn.setOnClickListener(v -> {
+                Intent homeSelectorIntent = new Intent(Intent.ACTION_MAIN);
+                homeSelectorIntent.addCategory(Intent.CATEGORY_HOME);
+                homeSelectorIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(homeSelectorIntent);
+            });
+        }
     }
 
     private void setupPositionSliders() {
         SeekBar seekX = findViewById(R.id.sliderX);
         SeekBar seekY = findViewById(R.id.sliderY);
 
-        seekX.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (isServiceBound && boundService != null) {
-                    boundService.updateIslandPosition(progress, seekY.getProgress());
+        if (seekX != null && seekY != null) {
+            seekX.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (isServiceBound && boundService != null) {
+                        boundService.updateIslandPosition(progress, seekY.getProgress());
+                    }
                 }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
 
-        seekY.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (isServiceBound && boundService != null) {
-                    boundService.updateIslandPosition(seekX.getProgress(), progress);
+            seekY.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (isServiceBound && boundService != null) {
+                        boundService.updateIslandPosition(seekX.getProgress(), progress);
+                    }
                 }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
     }
 
     private void setupDockShortcuts() {
@@ -153,7 +168,9 @@ public class MainActivity extends AppCompatActivity {
             try {
                 Drawable icon = (intent != null) ? packageManager.getApplicationIcon(pkg) : getWallpaper();
                 View dockItem = createDockIconCard(icon, intent);
-                dockShelf.addView(dockItem);
+                if (dockShelf != null) {
+                    dockShelf.addView(dockItem);
+                }
             } catch (Exception ignored) {}
         }
     }
@@ -164,9 +181,9 @@ public class MainActivity extends AppCompatActivity {
         ImageView iconImg = appCard.findViewById(R.id.appIconImage);
         TextView labelTxt = appCard.findViewById(R.id.appLabelText);
 
-        labelTxt.setVisibility(View.GONE); // Hide text title on Dock bar icons
-        iconImg.setImageDrawable(iconDrawable);
-        frame.setRadius(Math.round(13 * getResources().getDisplayMetrics().density));
+        if (labelTxt != null) labelTxt.setVisibility(View.GONE); // Hide text title on Dock bar icons
+        if (iconImg != null) iconImg.setImageDrawable(iconDrawable);
+        if (frame != null) frame.setRadius(Math.round(13 * getResources().getDisplayMetrics().density));
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
         appCard.setLayoutParams(params);
@@ -207,31 +224,31 @@ public class MainActivity extends AppCompatActivity {
         ImageView iconImg = appCard.findViewById(R.id.appIconImage);
         TextView labelTxt = appCard.findViewById(R.id.appLabelText);
 
-        labelTxt.setText(appInfo.loadLabel(packageManager));
-        iconImg.setImageDrawable(appInfo.loadIcon(packageManager));
-        frame.setRadius(Math.round(13 * getResources().getDisplayMetrics().density));
+        if (labelTxt != null) labelTxt.setText(appInfo.loadLabel(packageManager));
+        if (iconImg != null) iconImg.setImageDrawable(appInfo.loadIcon(packageManager));
+        if (frame != null) frame.setRadius(Math.round(13 * getResources().getDisplayMetrics().density));
 
-        appCard.setOnTouchListener(new View.OnTouchListener() {
-            private float currentScale = 1.0f;
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        new IOSSpringAnimator(appCard).animateTo(currentScale, 0.88f, val -> {
-                            currentScale = val;
-                            appCard.setScaleX(val);
-                            appCard.setScaleY(val);
-                        });
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
-                            currentScale = val;
-                            appCard.setScaleX(val);
-                            appCard.setScaleY(val);
-                        });
-                        if (event.getAction() == MotionEvent.ACTION_UP) {
-                        Intent intent = packageManager.getLaunchIntentForPackage(appInfo.activityInfo.packageName);
+       appCard.setOnTouchListener(new View.OnTouchListener() {
+private float currentScale = 1.0f;
+@Override
+public boolean onTouch(View v, MotionEvent event) {
+switch (event.getAction()) {
+case MotionEvent.ACTION_DOWN:
+new IOSSpringAnimator(appCard).animateTo(currentScale, 0.88f, val -> {
+currentScale = val;
+appCard.setScaleX(val);
+appCard.setScaleY(val);
+});
+return true;
+case MotionEvent.ACTION_UP:
+case MotionEvent.ACTION_CANCEL:
+new IOSSpringAnimator(appCard).animateTo(currentScale, 1.0f, val -> {
+currentScale = val;
+appCard.setScaleX(val);
+appCard.setScaleY(val);
+});
+if (event.getAction() == MotionEvent.ACTION_UP) {
+Intent intent = packageManager.getLaunchIntentForPackage(appInfo.activityInfo.packageName);
 if (intent != null) startActivity(intent);
 }
 return true;
@@ -295,11 +312,15 @@ libraryGrid = v.findViewById(R.id.libraryGrid);
 searchBar = v.findViewById(R.id.searchBarInput);
 }
 public void populateLibrary(List allApps) {
+if (libraryGrid != null) {
 libraryGrid.removeAllViews();
 for (ResolveInfo app : allApps) libraryGrid.addView(createAppIconCard(app));
+}
+if (searchBar != null) {
 searchBar.addTextChangedListener(new TextWatcher() {
 @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+if (libraryGrid != null) {
 libraryGrid.removeAllViews();
 for (ResolveInfo app : allApps) {
 if (app.loadLabel(packageManager).toString().toLowerCase().contains(s.toString().toLowerCase())) {
@@ -307,8 +328,10 @@ libraryGrid.addView(createAppIconCard(app));
 }
 }
 }
+}
 @Override public void afterTextChanged(Editable s) {}
 });
+}
 }
 }
 @Override
