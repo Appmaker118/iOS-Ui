@@ -6,10 +6,13 @@
     android:clipToPadding="false">
 
     <LinearLayout
+        android:id="@+id/islandMasterRow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:clipChildren="false">
+        android:gravity="center_vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <!-- PRIMARY CONTEXT PILL COMPONENT -->
         <RelativeLayout
@@ -17,56 +20,98 @@
             android:layout_width="110dp"
             android:layout_height="30dp"
             android:background="@android:color/black"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:clipChildren="false">
 
-            <!-- Content Tray A: Icon Indicator Pointers -->
+            <!-- LEFT REGION: Action Icon Indicator -->
             <ImageView
                 android:id="@+id/islandLeftIcon"
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 android:layout_centerVertical="true"
                 android:layout_alignParentStart="true"
-                android:src="@android:drawable/ic_lock_silent_mode"
+                android:src="@android:drawable/ic_menu_compass"
                 android:visibility="gone"/>
 
-            <!-- Content Tray B: Text Status Readout Notifications -->
-            <TextView
-                android:id="@+id/islandCenterText"
+            <!-- CENTER REGION: Expandable Typography Readouts -->
+            <LinearLayout
+                android:id="@+id/islandCenterTextGroup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
-                android:text="Silent"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:visibility="gone"/>
-
-            <!-- Content Tray C: Live Music Visualizer Bars Box -->
-            <LinearLayout
-                android:id="@+id/islandVisualizerGroup"
-                android:layout_width="20dp"
-                android:layout_height="14dp"
-                android:layout_centerVertical="true"
-                android:layout_alignParentEnd="true"
-                android:gravity="bottom"
-                android:orientation="horizontal"
+                android:orientation="vertical"
+                android:gravity="center"
                 android:visibility="gone">
-                <View android:layout_width="2dp" android:layout_height="8dp" android:background="#1DB954" android:layout_marginEnd="1dp"/>
-                <View android:layout_width="2dp" android:layout_height="14dp" android:background="#1DB954" android:layout_marginEnd="1dp"/>
-                <View android:layout_width="2dp" android:layout_height="11dp" android:background="#1DB954"/>
+                <TextView
+                    android:id="@+id/islandMainTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true"/>
+                <TextView
+                    android:id="@+id/islandSubTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#8E8E93"
+                    android:textSize="9sp"
+                    android:visibility="gone"
+                    android:singleLine="true"/>
             </LinearLayout>
+
+            <!-- RIGHT REGION: Live Audio Waves OR Active Call Chronometers -->
+            <FrameLayout
+                android:id="@+id/islandRightActionArea"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_alignParentEnd="true">
+
+                <!-- Active Call Digital Chronometer Ticker -->
+                <Chronometer
+                    android:id="@+id/islandCallChronometer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:textColor="#34C759"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"/>
+
+                <!-- Live Music Waveform Bar Engine -->
+                <LinearLayout
+                    android:id="@+id/islandVisualizerGroup"
+                    android:layout_width="22dp"
+                    android:layout_height="14dp"
+                    android:layout_gravity="center_vertical"
+                    android:gravity="bottom"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+                    <View android:id="@+id/waveBar1" android:layout_width="2.5dp" android:layout_height="8dp" android:background="#1DB954" android:layout_marginEnd="1.5dp"/>
+                    <View android:id="@+id/waveBar2" android:layout_width="2.5dp" android:layout_height="14dp" android:background="#1DB954" android:layout_marginEnd="1.5dp"/>
+                    <View android:id="@+id/waveBar3" android:layout_width="2.5dp" android:layout_height="11dp" android:background="#1DB954" android:layout_marginEnd="1.5dp"/>
+                    <View android:id="@+id/waveBar4" android:layout_width="2.5dp" android:layout_height="6dp" android:background="#1DB954"/>
+                </LinearLayout>
+            </FrameLayout>
 
         </RelativeLayout>
 
-        <!-- DUAL-ACTIVITY SECONDARY DETACHED BUBBLE -->
-        <View
+        <!-- DUAL-ACTIVITY SPLIT: SECONDARY DETACHED BUBBLE -->
+        <FrameLayout
             android:id="@+id/islandSplitBubble"
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:layout_marginStart="8dp"
             android:background="@android:color/black"
-            android:visibility="gone"/>
+            android:visibility="gone">
+            <ImageView
+                android:id="@+id/islandSplitIcon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_dialog_alert"/>
+        </FrameLayout>
 
     </LinearLayout>
 </FrameLayout>
