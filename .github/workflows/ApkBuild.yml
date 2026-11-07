@@ -21,25 +21,13 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 3. Initialize Gradle structures inside the subfolder matching your project layout
-    - name: Generate Fresh Gradle Wrapper
-      run: |
-        cd "Approot"
-        gradle wrapper --gradle-version 8.2.2
-
-    # 4. Grant absolute execution privileges to the newly generated wrapper
-    - name: Grant Execute Permission for Gradle Wrapper
-      run: |
-        cd "Approot"
-        chmod +x gradlew
-
-    # 5. Compile the application code into a Debug APK from the subfolder
+    # 3. Compile the application code directly using the runner's engine from your subfolder
     - name: Build Debug APK Layout
       run: |
         cd "Approot"
-        ./gradlew assembleDebug
+        gradle assembleDebug
 
-    # 6. Extract and upload the finished APK artifact out of the build subdirectories
+    # 4. Extract and upload the finished APK artifact out of the build subdirectories
     - name: Upload Output APK Artifact
       uses: actions/upload-artifact@v4
       with:
