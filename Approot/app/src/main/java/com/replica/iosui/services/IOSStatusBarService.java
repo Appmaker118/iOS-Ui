@@ -20,12 +20,14 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Chronometer;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -38,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -59,10 +62,17 @@ public class IOSStatusBarService extends Service {
     private View islandBasePill;
     private View islandSplitBubble;
     private ImageView islandLeftIcon;
-    private TextView islandCenterText;
-    private View islandVisualizer;
+    private LinearLayout islandCenterTextGroup;
+    private TextView islandMainTitle;
+    private TextView islandSubTitle;
+    private LinearLayout islandVisualizer;
+    private Chronometer islandChronometer;
+    private ImageView islandSplitIcon;
+    
+    // Waveforms View Pointers
+    private View wave1, wave2, wave3, wave4;
 
-    // Orchestration Systems
+    // Orchestration System Connections
     private Timer clockTimer;
     private AudioManager audioManager;
     private WifiManager wifiManager;
@@ -75,20 +85,23 @@ public class IOSStatusBarService extends Service {
     private BroadcastReceiver bluetoothReceiver;
     private BroadcastReceiver batteryReceiver;
     
-    // State Pointer Frameworks
+    // Operational State Framework Flags
     private String cameraId;
     private boolean isFlashlightOn = false;
     private boolean isCCVisible = false;
     private boolean isHudVisible = false;
     private boolean isHudExpanded = false;
+    private boolean isIslandExpanded = false;
     
     private float initialTouchY = 0f;
     private float hudWidth = 14f;
     private int displayHeight = 0;
+    private String currentActiveAppPackage = "com.android.settings"; // Direct context tracker package
     
     private Handler hudDismissHandler;
     private Runnable dismissRunnable;
     private Handler islandHandler;
+    private Runnable visualizerRunnable;
     
     private WindowManager.LayoutParams baseParams;
     private WindowManager.LayoutParams dragParams;
@@ -111,14 +124,21 @@ public class IOSStatusBarService extends Service {
         hudDismissHandler = new Handler(Looper.getMainLooper());
         islandHandler = new Handler(Looper.getMainLooper());
 
-        // 1. SERVICES
+        // 1. INITIALISE CORE HARDWARE CONNECTORS
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
         BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         if (bm != null) bluetoothAdapter = bm.getAdapter();
 
-        // 2. INFLATE MAIN OVERLAY INTERFACE CARDS
+        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            if (cameraManager != null && cameraManager.getCameraIdList().length > 0) {
+                cameraId = cameraManager.getCameraIdList()[0];
+            }
+        } catch (Exception ignored) {}
+
+        // 2. INFLATE MASTER INTERFACE CANVAS OVERLAYS
         masterView = LayoutInflater.from(this).inflate(R.layout.overlay_control_centre, null);
         ccRootView = masterView.findViewById(R.id.ccRoot);
         statusBarView = masterView.findViewById(R.id.statusBarContainer);
@@ -139,13 +159,22 @@ public class IOSStatusBarService extends Service {
         baseParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(masterView, baseParams);
 
-        // 3. INFLATE DYNAMIC ISLAND SYSTEM
+        // 3. INFLATE DYNAMIC ISLAND CONTROL MODULES
         islandOverlayView = LayoutInflater.from(this).inflate(R.layout.overlay_dynamic_island, null);
         islandBasePill = islandOverlayView.findViewById(R.id.islandBasePill);
         islandSplitBubble = islandOverlayView.findViewById(R.id.islandSplitBubble);
         islandLeftIcon = islandOverlayView.findViewById(R.id.islandLeftIcon);
-        islandCenterText = islandOverlayView.findViewById(R.id.islandCenterText);
+        islandCenterTextGroup = islandOverlayView.findViewById(R.id.islandCenterTextGroup);
+        islandMainTitle = islandOverlayView.findViewById(R.id.islandMainTitle);
+        islandSubTitle = islandOverlayView.findViewById(R.id.islandSubTitle);
         islandVisualizer = islandOverlayView.findViewById(R.id.islandVisualizerGroup);
+        islandChronometer = islandOverlayView.findViewById(R.id.islandCallChronometer);
+        islandSplitIcon = islandOverlayView.findViewById(R.id.islandSplitIcon);
+        
+        wave1 = islandOverlayView.findViewById(R.id.waveBar1);
+        wave2 = islandOverlayView.findViewById(R.id.waveBar2);
+        wave3 = islandOverlayView.findViewById(R.id.waveBar3);
+        wave4 = islandOverlayView.findViewById(R.id.waveBar4);
 
         islandParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -155,11 +184,11 @@ public class IOSStatusBarService extends Service {
                 PixelFormat.TRANSLUCENT
         );
         islandParams.gravity = Gravity.TOP | Gravity.START;
-        islandParams.x = displayWidth / 2 - dpToPx(55); // Centered default allocation
+        islandParams.x = displayWidth / 2 - dpToPx(55); // Centered default calibration allocation
         islandParams.y = dpToPx(6);
         windowManager.addView(islandOverlayView, islandParams);
 
-        // 4. DRAG MECHANICS EDGE TRACKER INVISIBLE BOX
+        // 4. INVISIBLE GESTURE RECEIVER TRACKER BOX
         dragParams = new WindowManager.LayoutParams(
                 displayWidth / 3,
                 dpToPx(44),
@@ -172,15 +201,14 @@ public class IOSStatusBarService extends Service {
         dragTriggerView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         windowManager.addView(dragTriggerView, dragParams);
 
-        // 5. BOOT FUNCTIONS
+        // 5. ENGAGE RUNNING LOOPS
         initClockEngine();
         initVolumeHUDSystem();
         initDragAndHardwareUtilities();
         initMediaPlaybackEngine();
-        initIslandSystemListeners();
+        initIslandSystemCore();
     }
 
-    // Live real-time alignment configuration access routines called by layout SeekBars
     public void updateIslandPosition(int customX, int customY) {
         if (islandOverlayView != null && islandParams != null) {
             islandParams.x = customX;
@@ -189,56 +217,115 @@ public class IOSStatusBarService extends Service {
         }
     }
 
-    private void initIslandSystemListeners() {
-        // --- BATTERY CHARGER SYSTEM PLUG-IN TRIGGER ---
+    private void initIslandSystemCore() {
+        // --- BATTERY CHARGING INTENT DISCOVERY ---
         batteryReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if (Intent.ACTION_POWER_CONNECTED.equals(action)) {
-                    triggerIslandExpansion("Charging", android.graphics.drawable.ic_lock_idle_charging);
+                if (Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
+                    currentActiveAppPackage = "com.android.settings"; // Point context tracker to settings app
+                    executeIslandTransformation("Charging", "98% Battery Level Locked", android.graphics.drawable.ic_lock_idle_charging, false, false);
                 }
             }
         };
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Intent.ACTION_POWER_CONNECTED);
-        registerReceiver(batteryReceiver, filter);
-        
-        // Wire a long-press interaction to transform the capsule view panel
-        islandBasePill.setOnLongClickListener(v -> {
-            triggerIslandExpansion("Live Tracker Activity Active", android.graphics.drawable.ic_dialog_info);
-            return true;
-        });
-    }
+        registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
 
-    private void triggerIslandExpansion(String textMessage, int targetIconResource) {
-        islandLeftIcon.setImageResource(targetIconResource);
-        islandLeftIcon.setVisibility(View.VISIBLE);
-        islandCenterText.setText(textMessage);
-        islandCenterText.setVisibility(View.VISIBLE);
-        
-        // Smoothly expand width using our standard physics animator engine framework
-        new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 240f, val -> {
-            islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
-            islandBasePill.requestLayout();
-        });
-
-        // Split out the secondary micro activity bubble to represent active multi-tasking modes
-        islandHandler.postDelayed(() -> islandSplitBubble.setVisibility(View.VISIBLE), 150);
-
-        // Auto-collapse back down safely into an idle state after 3 seconds
-        islandHandler.postDelayed(() -> {
-            islandLeftIcon.setVisibility(View.GONE);
-            islandCenterText.setVisibility(View.GONE);
-            islandSplitBubble.setVisibility(View.GONE);
-            new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(240f, 110f, val -> {
-                islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
-                islandBasePill.requestLayout();
-            });
-        }, 3500);
-    }
-
-    private void initClockEngine() {
+        // --- GESTURE ROUTER (CLICK TO RE-COLLAPSE / LONG PRESS TO LAUNCH TARGET APP) ---
+        islandBasePill.setOnClickListener(v -> {
+            if (isIslandExpanded) {
+                collapseIslandToCompact();
+            } else {
+         // Simulate map live guidance overview on quick touch tap
+currentActiveAppPackage = "com.google.android.apps.maps";
+executeIslandTransformation("Maps Active Navigation", "Turn Right in 250m", android.graphics.drawable.ic_menu_compass, false, true);
+}
+});
+islandBasePill.setOnLongClickListener(v -> {
+// Launch the precise application currently running behind the layout scene activity
+try {
+Intent targetLaunchIntent = getPackageManager().getLaunchIntentForPackage(currentActiveAppPackage);
+if (targetLaunchIntent != null) {
+targetLaunchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(targetLaunchIntent);
+collapseIslandToCompact();
+}
+} catch (Exception ignored) {}
+return true;
+});
+// Setup call layout ticker profiling demonstration after 12 seconds automatically for testing validation
+islandHandler.postDelayed(() -> {
+currentActiveAppPackage = "com.android.server.telecom"; // Track native dialer operations
+executeIslandTransformation("Incoming Call Ticker", "Mom", android.graphics.drawable.ic_menu_call, true, false);
+}, 12000);
+}
+private void executeIslandTransformation(String mainText, String subText, int iconRes, boolean isPhoneCall, boolean isSplitActive) {
+isIslandExpanded = true;
+islandLeftIcon.setImageResource(iconRes);
+islandLeftIcon.setVisibility(View.VISIBLE);
+islandMainTitle.setText(mainText);
+islandSubTitle.setText(subText);
+islandSubTitle.setVisibility(View.VISIBLE);
+islandCenterTextGroup.setVisibility(View.VISIBLE);
+if (isPhoneCall) {
+islandChronometer.setBase(SystemClock.elapsedRealtime());
+islandChronometer.start();
+islandChronometer.setVisibility(View.VISIBLE);
+islandVisualizer.setVisibility(View.GONE);
+}
+// Execute physics dimensional alterations fluidly via spring core variables
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(110f, 255f, val -> {
+islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+islandBasePill.getLayoutParams().height = dpToPx(46);
+islandBasePill.requestLayout();
+});
+if (isSplitActive) {
+islandHandler.postDelayed(() -> {
+islandSplitIcon.setImageResource(android.graphics.drawable.ic_dialog_alert);
+islandSplitBubble.setVisibility(View.VISIBLE);
+}, 150);
+}
+}
+private void collapseIslandToCompact() {
+isIslandExpanded = false;
+islandChronometer.stop();
+islandLeftIcon.setVisibility(View.GONE);
+islandCenterTextGroup.setVisibility(View.GONE);
+islandSubTitle.setVisibility(View.GONE);
+islandChronometer.setVisibility(View.GONE);
+islandSplitBubble.setVisibility(View.GONE);
+if (activeMediaController != null && activeMediaController.getPlaybackState() != null
+&& activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
+islandVisualizer.setVisibility(View.VISIBLE);
+}
+new com.replica.iosui.physics.IOSSpringAnimator(islandBasePill).animateTo(255f, 110f, val -> {
+islandBasePill.getLayoutParams().width = dpToPx(Math.round(val));
+islandBasePill.getLayoutParams().height = dpToPx(30);
+islandBasePill.requestLayout();
+});
+}
+// --- CONTINUOUS WAVEFORM AUDIO VISUALIZER SUB-LOOP ---
+private void startVisualizerAnimationLoop() {
+if (visualizerRunnable != null) return;
+visualizerRunnable = new Runnable() {
+private final Random rand = new Random();
+@Override
+public void run() {
+if (islandVisualizer.getVisibility() == View.VISIBLE) {
+updateBarHeight(wave1, rand.nextInt(10) + 4);
+updateBarHeight(wave2, rand.nextInt(13) + 5);
+updateBarHeight(wave3, rand.nextInt(15) + 3);
+updateBarHeight(wave4, rand.nextInt(9) + 4);
+}
+islandHandler.postDelayed(this, 90);
+}
+};
+islandHandler.post(visualizerRunnable);
+}
+private void updateBarHeight(View bar, int dpHeight) {
+bar.getLayoutParams().height = dpToPx(dpHeight);
+bar.requestLayout();
+}
+private void initClockEngine() {
 final TextView timeTextView = masterView.findViewById(R.id.statusBarTime);
 final SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm", Locale.getDefault());
 clockTimer = new Timer();
@@ -401,8 +488,11 @@ if (!controllers.isEmpty()) {
 activeMediaController = controllers.get(0);
 String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
 trackTitle.setText(name != null ? name : "Unknown Track");
-// Reveal music wave inside island capsule layer
+if (activeMediaController.getPlaybackState() != null && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
+currentActiveAppPackage = activeMediaController.getPackageName(); // Lock active app handle
 islandVisualizer.setVisibility(View.VISIBLE);
+startVisualizerAnimationLoop();
+}
 }
 } catch (Exception ignored) {}
 }
@@ -437,5 +527,6 @@ if (dragTriggerView != null) windowManager.removeView(dragTriggerView);
 if (clockTimer != null) clockTimer.cancel();
 if (volumeReceiver != null) unregisterReceiver(volumeReceiver);
 if (batteryReceiver != null) unregisterReceiver(batteryReceiver);
+if (visualizerRunnable != null) islandHandler.removeCallbacks(visualizerRunnable);
 }
 }
