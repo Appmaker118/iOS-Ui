@@ -1,25 +1,28 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Strictly runs only when you press the button manually
+  workflow_dispatch: # Strictly runs only when you press the button manually in Actions
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: Approot # Directs all commands to execute inside your project folder
     env:
       HAS_KEY: ${{ secrets.IOSUI_KEYSTORE_B64 != '' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Initialize Fresh Gradle 8.7 Wrapper
+      - name: Initialize Fresh Gradle Wrapper
         run: |
           gradle wrapper --gradle-version 8.7
           sed -i 's/\r$//' gradlew
@@ -43,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-ui-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: Approot/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Build debug APK (no signing key configured)
@@ -55,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-ui-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: Approot/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
