@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://android.com"
     xmlns:tools="http://android.com">
 
-    <!-- Core Hardware Utility Access Permissions -->
+    <!-- Active Hardware Interface Core Framework Permissions -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -10,8 +10,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" 
-        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -20,9 +19,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <!-- PRIMARY HOME SCREEN LAUNCHER WINDOW ENTRYPOINT -->
+        <!-- PRIMARY DESKTOP WORKSPACE LAUNCHER WINDOW ENTRYPOINT -->
         <activity
-            android:name=".MainActivity"
+            android:name="com.replica.iosui.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:clearTaskOnLaunch="true"
@@ -35,14 +34,14 @@
             </intent-filter>
         </activity>
 
-        <!-- BACKGROUND OVERLAY SERVICE ENGINE HOOKS -->
+        <!-- BACKGROUND OVERLAY ENGINE HOOKED SERVICES -->
         <service
-            android:name=".services.IOSStatusBarService"
+            android:name="com.replica.iosui.services.IOSStatusBarService"
             android:enabled="true"
             android:exported="false" />
 
         <service
-            android:name=".services.IOSLockScreenService"
+            android:name="com.replica.iosui.services.IOSLockScreenService"
             android:enabled="true"
             android:exported="false" />
 
