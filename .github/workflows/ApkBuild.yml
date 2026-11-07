@@ -1,39 +1,65 @@
-name: Android APK Build Engine
+name: Android Apk Build
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch: # Locks down the build to only run manually when pressed in actions
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    # Pinned to ensure an OS environment change cannot break compilation mid-stream.
+    runs-on: ubuntu-24.04
+    env:
+      # Signed release build when the signing secrets exist; debug build otherwise (e.g. forks).
+      HAS_KEY: ${{ secrets.IOSUI_KEYSTORE_B64 != '' }}
     steps:
-    # 1. Checkout the source code repository
-    - name: Checkout Code Repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-    # 2. Set up the JDK 17 Environment cleanly
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
 
-    # 3. Run the complete workspace reset script
-    - name: Reset Workspace Configuration
-      run: python setup_workspace.py
+      - name: Fix gradlew line endings and grant execute permission
+        run: |
+          cd "Approot"
+          gradle wrapper --gradle-version 8.2.2
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
 
-    # 4. Compile the codebase directly using the runner's engine from your subfolder
-    - name: Build Debug APK Layout
-      run: |
-        cd "Approot"
-        gradle assembleDebug
+      - name: Build signed release APK
+        if: env.HAS_KEY == 'true'
+        env:
+          IOSUI_KEYSTORE_B64: ${{ secrets.IOSUI_KEYSTORE_B64 }}
+          IOSUI_KEYSTORE_PASSWORD: ${{ secrets.IOSUI_KEYSTORE_PASSWORD }}
+          IOSUI_KEY_ALIAS: ${{ secrets.IOSUI_KEY_ALIAS }}
+          IOSUI_KEY_PASSWORD: ${{ secrets.IOSUI_KEY_PASSWORD }}
+        run: |
+          cd "Approot"
+          echo "$IOSUI_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/iosui-release.jks"
+          export IOSUI_KEYSTORE_PATH="$RUNNER_TEMP/iosui-release.jks"
+          ./gradlew assembleRelease --stacktrace
+          rm -f "$RUNNER_TEMP/iosui-release.jks"
 
-    # 5. Extract and upload the finished APK artifact
-    - name: Upload Output APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: iOS-27-Replica-Debug-APK
-        path: "**/build/outputs/apk/debug/app-debug.apk"
+      - name: Upload release APK
+        if: env.HAS_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ui-release-apk
+          path: Approot/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Build debug APK (no signing key configured)
+        if: env.HAS_KEY != 'true'
+        run: |
+          cd "Approot"
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        if: env.HAS_KEY != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ui-debug-apk
+          path: Approot/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
