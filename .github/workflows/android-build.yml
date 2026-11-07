@@ -1,7 +1,7 @@
 name: iOS UI
 
 on:
-  workflow_dispatch: # Locks down the build to only run manually when pressed in actions
+  workflow_dispatch: # Only runs when you press the button manually in Actions
 
 jobs:
   build:
@@ -19,17 +19,33 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # FORCE RESET SYSTEM STRUCTURES ON THE RUNNER VM INSTANCE
-      - name: Reconstruct Rigid Standard Project Layout
+      # AUTO-LOCATE AND AUTO-RECONSTRUCT THE WORKSPACE
+      - name: Auto-Locate and Rebuild Project Structure
         run: |
-          # 1. Completely blow away any residual folder or cache configuration collisions
-          rm -rf Approot/build.gradle Approot/settings.gradle Approot/gradle.properties Approot/app/build.gradle
+          echo "🔍 Scanning repository for your Android source files..."
           
-          # 2. Re-create the standard project directory trees explicitly
-          mkdir -p Approot/app/src/main
+          # Find where the actual main project source folder lives inside the repo dynamically
+          SRC_PATH=$(find . -type d -path "*/src/main" -print -quit)
           
-          # 3. Write standard root-level settings file
-          cat << 'EOF' > Approot/settings.gradle
+          if [ -z "$SRC_PATH" ]; then
+            echo "❌ CRITICAL ERROR: Could not find a 'src/main' folder anywhere in this repository."
+            echo "Please make sure your java code and layouts are inside a standard src/main folder."
+            exit 1
+          fi
+          
+          echo "🎯 Found your project source folder at: $SRC_PATH"
+          
+          # Wiping out any old, broken gradle or caching setups from the virtual workspace
+          rm -rf clean_workspace
+          
+          # Reconstruct a completely pristine, 100% standard Android layout inside a fresh folder
+          mkdir -p clean_workspace/app
+          
+          # Copy your raw source files exactly into the new clean workspace layout
+          cp -r "$SRC_PATH" clean_workspace/app/src/
+          
+          # Generate a standard, modern root-level settings file
+          cat << 'EOF' > clean_workspace/settings.gradle
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
@@ -41,8 +57,8 @@ jobs:
           include ':app'
           EOF
 
-          # 4. Write standard root-level build script carrying only global classpath hooks
-          cat << 'EOF' > Approot/build.gradle
+          # Generate a standard root-level build controller
+          cat << 'EOF' > clean_workspace/build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { classpath 'com.android.tools.build:gradle:8.4.0' }
@@ -53,15 +69,15 @@ jobs:
           tasks.register('clean', Delete) { delete rootProject.buildDir }
           EOF
 
-          # 5. Write explicit system properties
-          cat << 'EOF' > Approot/gradle.properties
+          # Generate required system architecture properties
+          cat << 'EOF' > clean_workspace/gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           EOF
 
-          # 6. Generate explicit app-module build script with absolute namespace mapping
-          cat << 'EOF' > Approot/app/build.gradle
+          # Generate standard app-module build dependencies rules with clear package namespaces
+          cat << 'EOF' > clean_workspace/app/build.gradle
           plugins { id 'com.android.application' }
           android {
               namespace 'com.replica.iosui'
@@ -90,50 +106,22 @@ jobs:
           }
           EOF
 
-          # 7. Write a clean AndroidManifest with required XML namespaces
-          cat << 'EOF' > Approot/app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://android.com"
-              xmlns:tools="http://android.com">
-              
-              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-              <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-              <uses-permission android:name="android.permission.BLUETOOTH" />
-              <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-
-              <application
-                  android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
-                  android:label="iOS 27 UI"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.NoActionBar"
-                  tools:node="replace">
-                  <activity
-                      android:name="com.replica.iosui.MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTask"
-                      android:clearTaskOnLaunch="true"
-                      android:stateNotNeeded="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                          <category android:name="android.intent.category.HOME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                  </activity>
-                  <service android:name="com.replica.iosui.services.IOSStatusBarService" android:enabled="true" android:exported="false" />
-                  <service android:name="com.replica.iosui.services.IOSLockScreenService" android:enabled="true" android:exported="false" />
-              </application>
-          </manifest>
-          EOF
+          # Verify that the generated manifest file carries the explicit required xml namespaces
+          MANIFEST_FILE="clean_workspace/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST_FILE" ]; then
+            # Clean up the manifest tag dynamically to inject tools and android mapping namespaces seamlessly
+            sed -i 's/<manifest[^>]*>/<manifest xmlns:android="http:\/\/://android.com\/apk\/res\/android" xmlns:tools="http:\/\/://android.com\/tools">/' "$MANIFEST_FILE"
+            # Ensure the application tag carries a replace instruction to avoid background dependency blocks
+            sed -i 's/<application[^>]*>/<application android:allowBackup="true" android:icon="@mipmap\/ic_launcher" android:label="iOS 27 UI" android:supportsRtl="true" android:theme="@style\/Theme.AppCompat.NoActionBar" tools:node="replace">/' "$MANIFEST_FILE"
+            echo "🚀 Manifest file namespaces auto-corrected successfully!"
+          else
+            echo "❌ ERROR: AndroidManifest.xml missing inside the copied src/main folder."
+            exit 1
+          fi
 
       - name: Initialize Fresh Gradle Wrapper
         run: |
-          cd Approot
+          cd clean_workspace
           gradle wrapper --gradle-version 8.7
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
@@ -146,7 +134,7 @@ jobs:
           IOSUI_KEY_ALIAS: ${{ secrets.IOSUI_KEY_ALIAS }}
           IOSUI_KEY_PASSWORD: ${{ secrets.IOSUI_KEY_PASSWORD }}
         run: |
-          cd Approot
+          cd clean_workspace
           echo "$IOSUI_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/iosui-release.jks"
           export IOSUI_KEYSTORE_PATH="$RUNNER_TEMP/iosui-release.jks"
           ./gradlew assembleRelease --no-daemon --stacktrace
@@ -157,13 +145,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-ui-release-apk
-          path: Approot/app/build/outputs/apk/release/*.apk
+          path: clean_workspace/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Build debug APK (no signing key configured)
         if: env.HAS_KEY != 'true'
         run: |
-          cd Approot
+          cd clean_workspace
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK artifact
