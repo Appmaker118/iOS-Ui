@@ -1,0 +1,1 @@
+No use of INTERNET, so Completely safe. To build APK file, go to Actions >> Workflows >> Select work flow >> Run it. Then you will get apk file in artefacts. Send it to your target device using whatsap, or use a charging cable to manually copy paste it from your computer to phone. First download on computer
