@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.PixelFormat;
+import android.graphics.Typeface;
 import android.hardware.camera2.CameraManager;
 import android.os.Build;
 import android.os.IBinder;
@@ -17,6 +18,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.core.content.res.ResourcesCompat;
 
 import com.replica.iosui.R;
 import com.replica.iosui.physics.IOSSpringAnimator;
@@ -31,6 +34,7 @@ public class IOSLockScreenService extends Service {
     private View lockRoot;
     private TextView clockText;
     private TextView dateText;
+    private TextView swipeHintText;
     private BroadcastReceiver screenReceiver;
     
     private CameraManager cameraManager;
@@ -51,7 +55,6 @@ public class IOSLockScreenService extends Service {
         windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         displayHeight = getResources().getDisplayMetrics().heightPixels;
 
-        // Initialize Flashlight hardware variables
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             if (cameraManager != null && cameraManager.getCameraIdList().length > 0) {
@@ -59,11 +62,27 @@ public class IOSLockScreenService extends Service {
             }
         } catch (Exception ignored) {}
 
-        // Inflate the main overlay structure
         lockView = LayoutInflater.from(this).inflate(R.layout.overlay_lockscreen, null);
         lockRoot = lockView.findViewById(R.id.lockRoot);
         clockText = lockView.findViewById(R.id.lockClockText);
         dateText = lockView.findViewById(R.id.lockDateText);
+        
+        // Find swipe text label component
+        View hintGroup = lockView.findViewById(R.id.lockBottomHint);
+        if (hintGroup instanceof android.view.ViewGroup) {
+            View child = ((android.view.ViewGroup) hintGroup).getChildAt(0);
+            if (child instanceof TextView) swipeHintText = (TextView) child;
+        }
+
+        // --- INJECT SF PRO TYPOGRAPHY PROGRAMMATICALLY ---
+        try {
+            Typeface sfProBold = ResourcesCompat.getFont(this, R.font.sf_pro_bold);
+            Typeface sfProRegular = ResourcesCompat.getFont(this, R.font.sf_pro_regular);
+            
+            if (clockText != null) clockText.setTypeface(sfProBold);
+            if (dateText != null) dateText.setTypeface(sfProRegular);
+            if (swipeHintText != null) swipeHintText.setTypeface(sfProBold);
+        } catch (Exception ignored) {}
 
         int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
@@ -90,8 +109,8 @@ public class IOSLockScreenService extends Service {
         SimpleDateFormat clockFormat = new SimpleDateFormat("hh:mm", Locale.getDefault());
         SimpleDateFormat dateFormat = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault());
         
-        clockText.setText(clockFormat.format(new Date()));
-        dateText.setText(dateFormat.format(new Date()).toUpperCase());
+        if (clockText != null) clockText.setText(clockFormat.format(new Date()));
+        if (dateText != null) dateText.setText(dateFormat.format(new Date()).toUpperCase());
     }
 
     private void setupScreenStateListeners() {
@@ -120,7 +139,6 @@ public class IOSLockScreenService extends Service {
         final ImageView torchBtn = lockView.findViewById(R.id.lockFlashlight);
         final ImageView cameraBtn = lockView.findViewById(R.id.lockCamera);
 
-        // --- FLASHLIGHT ACCIDENTAL-TOUCH PREVENTER GESTURE ---
         torchBtn.setOnTouchListener(new View.OnTouchListener() {
             private float currentScale = 1.0f;
             @Override
@@ -139,7 +157,6 @@ public class IOSLockScreenService extends Service {
                             torchBtn.setScaleX(val);
                             torchBtn.setScaleY(val);
                         });
-                        // Toggle real hardware flashlight
                         if (cameraManager != null && cameraId != null) {
                             try {
                                 isFlashlightOn = !isFlashlightOn;
@@ -160,7 +177,6 @@ public class IOSLockScreenService extends Service {
             }
         });
 
-        // --- CAMERA ACCIDENTAL-TOUCH PREVENTER GESTURE ---
         cameraBtn.setOnTouchListener(new View.OnTouchListener() {
             private float currentScale = 1.0f;
             @Override
@@ -179,7 +195,6 @@ public class IOSLockScreenService extends Service {
                             cameraBtn.setScaleX(val);
                             cameraBtn.setScaleY(val);
                         });
-                        // Open the system camera over the secure window layout stack safely
                         dismissLockScreen();
                         Intent cameraIntent = new Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA);
                         cameraIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -202,7 +217,6 @@ public class IOSLockScreenService extends Service {
         lockRoot.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                // Keep touch bounds unblocked if buttons are pressed
                 if(event.getY() > displayHeight - dpToPx(120)) return false;
 
                 float rawY = event.getRawY();
@@ -218,20 +232,19 @@ public class IOSLockScreenService extends Service {
                     case MotionEvent.ACTION_CANCEL:
                         float currentTransY = lockRoot.getTranslationY();
                         if (currentTransY < -displayHeight * 0.30f) {
-                            new IOSSpringAnimator(lockRoot).animateTo(currentTransY, -displayHeight, val -> {
-                                lockRoot.setTranslationY(val);
-                                if (val <= -displayHeight + 10f) dismissLockScreen();
-                            });
-                        } else {
-                            new IOSSpringAnimator(lockRoot).animateTo(currentTransY, 0f, val -> lockRoot.setTranslationY(val));
-                        }
-                        return true;
-                }
-                return false;
-            }
-        });
-    }
-
+                      new IOSSpringAnimator(lockRoot).animateTo(currentTransY, -displayHeight, val -> {
+lockRoot.setTranslationY(val);
+if (val <= -displayHeight + 10f) dismissLockScreen();
+});
+} else {
+new IOSSpringAnimator(lockRoot).animateTo(currentTransY, 0f, val -> lockRoot.setTranslationY(val));
+}
+return true;
+}
+return false;
+}
+});
+}
 private void dismissLockScreen() {
 lockRoot.setVisibility(View.GONE);
 lockRoot.setTranslationY(0f);
