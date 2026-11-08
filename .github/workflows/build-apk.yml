@@ -15,6 +15,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Approot
 
     steps:
       - name: Checkout Code
@@ -25,15 +28,16 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Grant Execute Permission to Gradlew
-        run: chmod +x gradlew
+      - name: Setup Gradle (Generates wrapper if missing)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
       # --- DEBUG BUILD STEP ---
       - name: Build Debug APK
         if: ${{ github.event.inputs.build_type == 'debug' }}
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
 
       # --- RELEASE BUILD STEPS ---
       - name: Decode Keystore File
@@ -44,7 +48,7 @@ jobs:
       - name: Build Signed Release APK
         if: ${{ github.event.inputs.build_type == 'release' }}
         run: |
-          ./gradlew assembleRelease \
+          gradle assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/app/release-keystore.jks \
             -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
@@ -56,5 +60,5 @@ jobs:
         with:
           name: ${{ github.event.inputs.build_type }}-APK
           path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+            Approot/app/build/outputs/apk/debug/*.apk
+            Approot/app/build/outputs/apk/release/*.apk
