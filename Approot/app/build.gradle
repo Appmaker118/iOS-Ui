@@ -1,7 +1,5 @@
 plugins {
-    id 'com.replica.iosui'
-    // Remove the comment below if your app uses Kotlin:
-    // id 'org.jetbrains.kotlin.android'
+    id 'com.android.application'
 }
 
 android {
