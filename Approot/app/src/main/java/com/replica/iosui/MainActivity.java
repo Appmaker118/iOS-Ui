@@ -304,32 +304,32 @@ private class GridViewHolder extends RecyclerView.ViewHolder {
 public GridViewHolder(@NonNull View v) { super(v); }
 }
 private class LibraryViewHolder extends RecyclerView.ViewHolder {
-private final GridLayout libraryGrid;
-private final EditText searchBar;
-public LibraryViewHolder(@NonNull View v) {
-super(v);
-libraryGrid = v.findViewById(R.id.libraryGrid);
-searchBar = v.findViewById(R.id.searchBarInput);
-}
-public void populateLibrary(List allApps) {
-if (libraryGrid != null) {
-libraryGrid.removeAllViews();
-for (ResolveInfo app : allApps) libraryGrid.addView(createAppIconCard(app));
-}
-if (searchBar != null) {
-searchBar.addTextChangedListener(new TextWatcher() {
-@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-@Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-if (libraryGrid != null) {
-libraryGrid.removeAllViews();
-for (ResolveInfo app : allApps) {
-if (app.loadLabel(packageManager).toString().toLowerCase().contains(s.toString().toLowerCase())) {
-libraryGrid.addView(createAppIconCard(app));
-}
-}
-}
-}
-@Override public void afterTextChanged(Editable s) {}
+        private final GridLayout libraryGrid;
+        private final EditText searchBar;
+        public LibraryViewHolder(@NonNull View v) {
+            super(v);
+            libraryGrid = v.findViewById(R.id.libraryGrid);
+            searchBar = v.findViewById(R.id.searchBarInput);
+        }
+        public void populateLibrary(List<ResolveInfo> allApps) {
+            if (libraryGrid != null) {
+                libraryGrid.removeAllViews();
+                for (ResolveInfo app : allApps) libraryGrid.addView(createAppIconCard(app));
+            }
+            if (searchBar != null) {
+                searchBar.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        if (libraryGrid != null) {
+                            libraryGrid.removeAllViews();
+                            for (ResolveInfo app : allApps) {
+                                if (app.loadLabel(packageManager).toString().toLowerCase().contains(s.toString().toLowerCase())) {
+                                    libraryGrid.addView(createAppIconCard(app));
+                                }
+                            }
+                        }
+                    }
+                    @Override public void afterTextChanged(Editable s) {}
 });
 }
 }
