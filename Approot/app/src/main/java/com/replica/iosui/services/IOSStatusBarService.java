@@ -527,22 +527,27 @@ return false;
 });
 }
 private void initMediaPlaybackEngine() {
-final TextView trackTitle = masterView.findViewById(R.id.ccTrackTitle);
-final ImageView playPauseBtn = masterView.findViewById(R.id.ccMediaPlayPause);
-if (mediaSessionManager != null) {
-try {
-List controllers = mediaSessionManager.getActiveSessions(null);
-if (!controllers.isEmpty()) {
-activeMediaController = controllers.get(0);
-String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_TITLE);
-trackTitle.setText(name != null ? name : "Unknown Track");
-if (activeMediaController.getPlaybackState() != null && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
-currentActiveAppPackage = activeMediaController.getPackageName();
-islandVisualizer.setVisibility(View.VISIBLE);
-startVisualizerAnimationLoop();
-}
-}
-} catch (Exception ignored) {}
+        final TextView trackTitle = masterView.findViewById(R.id.ccTrackTitle);
+        final ImageView playPauseBtn = masterView.findViewById(R.id.ccMediaPlayPause);
+        if (mediaSessionManager != null) {
+            try {
+                List<MediaController> controllers = mediaSessionManager.getActiveSessions(null);
+                if (!controllers.isEmpty()) {
+                    activeMediaController = controllers.get(0);
+                    if (activeMediaController.getMetadata() != null) {
+                        String name = activeMediaController.getMetadata().getString(MediaMetadata.METADATA_KEY_TITLE);
+                        if (trackTitle != null) {
+                            trackTitle.setText(name != null ? name : "Unknown Track");
+                        }
+                    }
+                    if (activeMediaController.getPlaybackState() != null && activeMediaController.getPlaybackState().getState() == PlaybackState.STATE_PLAYING) {
+                        currentActiveAppPackage = activeMediaController.getPackageName();
+                        islandVisualizer.setVisibility(View.VISIBLE);
+                        startVisualizerAnimationLoop();
+                    }
+                }
+            } catch (Exception ignored) {}
+
 }
 playPauseBtn.setOnClickListener(v -> {
 if (activeMediaController != null) {
