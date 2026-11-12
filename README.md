@@ -1,5 +1,8 @@
 No use of INTERNET, so Completely safe. 
 
+##DIRECT DOWNLOAD OF APK:
+1.Click on the latest release in the releases Section, and click on debug.apk to download it. After it downloads, open it on your phone to install it.
+
 ### How to Compile and Download the APK:
 1. Push your latest code changes to your repository.
 2. Open your repository page on GitHub in a web browser and navigate to the **Actions** tab.
