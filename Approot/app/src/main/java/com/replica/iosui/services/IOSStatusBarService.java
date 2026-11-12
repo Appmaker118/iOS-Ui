@@ -250,7 +250,7 @@ batteryReceiver = new BroadcastReceiver() {
 public void onReceive(Context context, Intent intent) {
 if (Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
 currentActiveAppPackage = "com.android.settings";
-executeIncomingNotificationAlert("System Framework", "Charging • 98% Filled", android.graphics.drawable.ic_lock_idle_charging, false);
+executeIncomingNotificationAlert("System Framework", "Charging • 98% Filled", android.R.drawable.ic_lock_idle_charging, false);
 }
 }
 };
@@ -259,7 +259,7 @@ islandBasePill.setOnClickListener(v -> {
 if (isIslandExpanded) {
 collapseIslandToCompact();
 } else {
-executeIncomingNotificationAlert("WhatsApp", "Message from Alex: Let's meet at 5!", android.graphics.drawable.ic_menu_send, false);
+executeIncomingNotificationAlert("WhatsApp", "Message from Alex: Let's meet at 5!", android.R.drawable.ic_menu_send, false);
 }
 });
 islandBasePill.setOnLongClickListener(v -> {
@@ -295,7 +295,7 @@ collapseIslandToCompact();
 });
 islandHandler.postDelayed(() -> {
 currentActiveAppPackage = "com.whatsapp";
-executeIncomingNotificationAlert("WhatsApp Voice Call", "Sarah Jenkins", android.graphics.drawable.ic_menu_call, true);
+executeIncomingNotificationAlert("WhatsApp Voice Call", "Sarah Jenkins", android.R.drawable.ic_menu_call, true);
 }, 8000);
 }
 public void executeIncomingNotificationAlert(String title, String body, int iconRes, boolean isInteractiveCall) {
